@@ -88,6 +88,8 @@ export const DEALERSHIPS = {
         billingCycle: "April 25 - May 25",
         assignedAM: "Rohan Verma",
         amEmail: "rohan.verma@cardekho.com",
+        campaignName: "Creta Facelift Launch Search",
+        objective: "Drive high-intent inquiries and Creta showroom bookings in Noida NCR",
         subscription: {
           status: "Active",
           planName: "Premium Agency Retainer",
@@ -192,6 +194,8 @@ export const DEALERSHIPS = {
         billingCycle: "April 25 - May 25",
         assignedAM: "Rohan Verma",
         amEmail: "rohan.verma@cardekho.com",
+        campaignName: "Hyundai SUV Range Search & Display",
+        objective: "Increase Venue & Creta EV local showroom inquiries in South Delhi radius",
         subscription: {
           status: "Active",
           planName: "Standard Agency Retainer",
@@ -309,6 +313,8 @@ export const DEALERSHIPS = {
         billingCycle: "May 01 - May 31",
         assignedAM: "Priyanka Sen",
         amEmail: "priyanka.sen@cardekho.com",
+        campaignName: "Scorpio-N & XUV700 High-Intent Search",
+        objective: "Capture Scorpio-N booking intent queries and drive premium doorstep test drives",
         subscription: {
           status: "Active",
           planName: "Enterprise Agency Retainer",
@@ -408,3 +414,21 @@ export const DEALERSHIPS = {
     }
   }
 };
+
+export const ACCOUNT_MANAGERS = {
+  "rohan_verma": {
+    id: "rohan_verma",
+    name: "Rohan Verma",
+    phone: "9999999999",
+    otp: "111111",
+    assignedDealers: ["rohan_motors"]
+  },
+  "priyanka_sen": {
+    id: "priyanka_sen",
+    name: "Priyanka Sen",
+    phone: "8888888888",
+    otp: "222222",
+    assignedDealers: ["sethi_mahindra"]
+  }
+};
+

@@ -1515,3 +1515,32 @@ dialog[open]::backdrop {
   }
 }
 
+/* ========================================== */
+/* 13. ACCOUNT MANAGER CONSOLE STYLES         */
+/* ========================================== */
+.user-role-am .chat-message.am {
+  align-self: flex-end;
+  background: linear-gradient(135deg, HSLA(180, 100%, 45%, 0.15) 0%, HSLA(263, 85%, 65%, 0.15) 100%);
+  border: 1px solid var(--accent-cyan-glow);
+  border-bottom-right-radius: 2px;
+  border-bottom-left-radius: var(--border-radius-md);
+}
+
+.user-role-am .chat-message.dealer {
+  align-self: flex-start;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-color);
+  border-bottom-left-radius: 2px;
+  border-bottom-right-radius: var(--border-radius-md);
+}
+
+.am-channel-item:hover {
+  background: rgba(13, 202, 240, 0.04) !important;
+  border-color: rgba(13, 202, 240, 0.4) !important;
+}
+
+.am-channel-item.active {
+  background: rgba(13, 202, 240, 0.1) !important;
+  border-color: var(--accent-cyan) !important;
+}
+

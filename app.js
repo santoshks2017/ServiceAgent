@@ -1,9 +1,11 @@
-import { DEALERSHIPS } from './data.js';
+import { DEALERSHIPS, ACCOUNT_MANAGERS } from './data.js';
 
 // State Management
 let appState = {
   currentUser: null,
   currentLocationId: null,
+  currentRole: 'dealer', // 'dealer' or 'am'
+  activeChatLocationId: null, // for AM chat panel
   dateRange: 'month', // '7d', '30d', 'month', 'custom'
   customStartDate: '',
   customEndDate: '',
@@ -67,10 +69,19 @@ function checkExistingSession() {
   if (savedSession) {
     try {
       const session = JSON.parse(savedSession);
-      const dealer = DEALERSHIPS[session.dealerId];
-      if (dealer) {
-        loginUser(dealer, session.locationId);
-        return;
+      if (session.role === 'am') {
+        const am = ACCOUNT_MANAGERS[session.amId];
+        if (am) {
+          loginAM(am);
+          return;
+        }
+      } else {
+        const dealerId = session.dealerId;
+        const dealer = DEALERSHIPS[dealerId];
+        if (dealer) {
+          loginUser(dealer, session.locationId);
+          return;
+        }
       }
     } catch (e) {
       localStorage.removeItem('cd_ncbd_session');
@@ -81,6 +92,10 @@ function checkExistingSession() {
 
 function loginUser(dealer, targetLocationId = null) {
   appState.currentUser = dealer;
+  appState.currentRole = 'dealer';
+  
+  document.body.classList.add('user-role-dealer');
+  document.body.classList.remove('user-role-am');
   
   // Get first available location if not specified
   const locationIds = Object.keys(dealer.locations);
@@ -90,6 +105,7 @@ function loginUser(dealer, targetLocationId = null) {
   
   // Save session
   localStorage.setItem('cd_ncbd_session', JSON.stringify({
+    role: 'dealer',
     dealerId: Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key] === dealer),
     locationId: appState.currentLocationId
   }));
@@ -98,9 +114,15 @@ function loginUser(dealer, targetLocationId = null) {
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('app-view').style.display = 'flex';
   
+  // Toggle displays
+  document.getElementById('sidebar-dealer-nav').style.display = 'flex';
+  document.getElementById('sidebar-am-nav').style.display = 'none';
+  document.getElementById('location-switcher').style.display = 'block';
+
   // Update dealer profile in header
-  document.getElementById('dealer-name-header').textContent = dealer.name;
-  document.getElementById('dealer-avatar').textContent = dealer.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
+  document.getElementById('user-name-header').textContent = dealer.name;
+  document.getElementById('user-role-label').textContent = "Dealership Portal";
+  document.getElementById('user-avatar').textContent = dealer.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
 
   // Clone location specific data to state
   const locData = dealer.locations[appState.currentLocationId];
@@ -112,6 +134,54 @@ function loginUser(dealer, targetLocationId = null) {
 
   initAppDashboard();
   showToast('Logged In Successfully', `Welcome to ${dealer.name}`);
+}
+
+function loginAM(am) {
+  appState.currentUser = am;
+  appState.currentRole = 'am';
+  
+  document.body.classList.add('user-role-am');
+  document.body.classList.remove('user-role-dealer');
+  
+  // Save session
+  localStorage.setItem('cd_ncbd_session', JSON.stringify({
+    role: 'am',
+    amId: am.id
+  }));
+
+  // Hide Auth, Show Main App
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('app-view').style.display = 'flex';
+  
+  // Toggle displays
+  document.getElementById('sidebar-dealer-nav').style.display = 'none';
+  document.getElementById('sidebar-am-nav').style.display = 'flex';
+  document.getElementById('location-switcher').style.display = 'none';
+
+  // Update profile in header
+  document.getElementById('user-name-header').textContent = am.name;
+  document.getElementById('user-role-label').textContent = "Account Manager Console";
+  document.getElementById('user-avatar').textContent = am.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
+
+  // Bind nav-items click handlers for AM sidebar
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(item => {
+    item.onclick = () => {
+      const tabId = item.getAttribute('data-tab');
+      switchTab(tabId);
+    };
+  });
+
+  // Navigate to default tab
+  switchTab('am-showrooms');
+  
+  // Bind send handlers for AM chat
+  document.getElementById('am-chat-send-btn').onclick = sendAMChatMessage;
+  document.getElementById('am-chat-input-field').onkeydown = (e) => {
+    if (e.key === 'Enter') sendAMChatMessage();
+  };
+  
+  showToast('Logged In Successfully', `Welcome, ${am.name}`);
 }
 
 function showAuthOverlay() {
@@ -149,6 +219,7 @@ function initAuthEventListeners() {
   sendOtpBtn.addEventListener('click', () => {
     const phoneVal = phoneInput.value.trim();
     const matchedKey = Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key].phone === phoneVal);
+    const matchedAMKey = Object.keys(ACCOUNT_MANAGERS).find(key => ACCOUNT_MANAGERS[key].phone === phoneVal);
     
     if (matchedKey) {
       // Transition to OTP view
@@ -156,14 +227,19 @@ function initAuthEventListeners() {
       // Auto populate code check helper
       setTimeout(() => {
         const dealer = DEALERSHIPS[matchedKey];
-        otpInputs[0].value = dealer.otp[0];
-        otpInputs[1].value = dealer.otp[1];
-        otpInputs[2].value = dealer.otp[2];
-        otpInputs[3].value = dealer.otp[3];
-        otpInputs[4].value = dealer.otp[4];
-        otpInputs[5].value = dealer.otp[5];
+        otpInputs.forEach((input, idx) => input.value = dealer.otp[idx]);
         otpInputs[5].focus();
         showToast('OTP Simulated', `Code sent to ${phoneVal}. Autopopulated code: ${dealer.otp}`);
+      }, 800);
+    } else if (matchedAMKey) {
+      // Transition to OTP view
+      showOtpView(phoneVal);
+      // Auto populate code check helper
+      setTimeout(() => {
+        const am = ACCOUNT_MANAGERS[matchedAMKey];
+        otpInputs.forEach((input, idx) => input.value = am.otp[idx]);
+        otpInputs[5].focus();
+        showToast('OTP Simulated', `Code sent to AM ${phoneVal}. Autopopulated code: ${am.otp}`);
       }, 800);
     } else {
       showToast('Validation Failed', 'Mobile number not found in our database.', 'danger');
@@ -178,9 +254,12 @@ function initAuthEventListeners() {
     
     const phoneVal = phoneInput.value.trim();
     const matchedKey = Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key].phone === phoneVal);
+    const matchedAMKey = Object.keys(ACCOUNT_MANAGERS).find(key => ACCOUNT_MANAGERS[key].phone === phoneVal);
     
     if (matchedKey && DEALERSHIPS[matchedKey].otp === codeStr) {
       loginUser(DEALERSHIPS[matchedKey]);
+    } else if (matchedAMKey && ACCOUNT_MANAGERS[matchedAMKey].otp === codeStr) {
+      loginAM(ACCOUNT_MANAGERS[matchedAMKey]);
     } else {
       showToast('Error', 'Incorrect OTP. Please check the code and try again.', 'danger');
       otpInputs.forEach(input => {
@@ -246,11 +325,12 @@ function initAppDashboard() {
     ])];
     
     // Update dealer profile in header in case of switcher change
-    document.getElementById('dealer-name-header').textContent = appState.currentUser.name;
-    document.getElementById('dealer-avatar').textContent = appState.currentUser.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
+    document.getElementById('user-name-header').textContent = appState.currentUser.name;
+    document.getElementById('user-avatar').textContent = appState.currentUser.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
 
     // Save session change
     localStorage.setItem('cd_ncbd_session', JSON.stringify({
+      role: 'dealer',
       dealerId: Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key] === appState.currentUser),
       locationId: appState.currentLocationId
     }));
@@ -397,12 +477,19 @@ function switchTab(tabId) {
   
   if (activePane && activeNavItem) {
     activePane.classList.add('active');
-    activePane.style.display = tabId === 'logs' || tabId === 'dashboard' || tabId === 'reports' || tabId === 'billing' ? 'flex' : 'grid';
+    const isFlex = tabId === 'logs' || tabId === 'dashboard' || tabId === 'reports' || tabId === 'billing' || tabId === 'am-showrooms' || tabId === 'am-chat' || tabId === 'am-tickets';
+    activePane.style.display = isFlex ? 'flex' : 'grid';
     activeNavItem.classList.add('active');
     
     // Draw charts if tab is dashboard
     if (tabId === 'dashboard') {
       setTimeout(redrawCharts, 50);
+    } else if (tabId === 'am-showrooms') {
+      renderAMOverview();
+    } else if (tabId === 'am-chat') {
+      renderAMChat();
+    } else if (tabId === 'am-tickets') {
+      renderAMTickets();
     }
   }
 }
@@ -464,8 +551,6 @@ function updateDashboardContent() {
   
   // Set subtitle header info
   document.getElementById('dashboard-subtitle').innerHTML = `${loc.name} • Status: <span style="color: var(--color-success); font-weight: 700;">${loc.status}</span> • Live since ${new Date(loc.startDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}`;
-  document.getElementById('am-name').textContent = loc.assignedAM;
-  document.getElementById('am-avatar').textContent = loc.assignedAM.split(' ').map(n=>n[0]).join('');
 
   // 1. Accumulate Metrics
   let totals = { impressions: 0, clicks: 0, spend: 0, leads: 0 };
@@ -1507,4 +1592,375 @@ window.manageBillingAction = (action) => {
 
 window.downloadInvoice = (invId) => {
   showToast('Downloading Invoice', `Compiling invoice ${invId}. Initiated PDF receipt download...`, 'success');
+};
+
+// ==========================================
+// 13. ACCOUNT MANAGER CONTROLLERS & VIEWS
+// ==========================================
+function getAMShowrooms() {
+  if (!appState.currentUser || appState.currentRole !== 'am') return [];
+  const showrooms = [];
+  appState.currentUser.assignedDealers.forEach(dealerKey => {
+    const dealer = DEALERSHIPS[dealerKey];
+    if (dealer) {
+      Object.keys(dealer.locations).forEach(locId => {
+        showrooms.push({
+          dealerKey,
+          dealerName: dealer.name,
+          locId,
+          ...dealer.locations[locId]
+        });
+      });
+    }
+  });
+  return showrooms;
+}
+
+function renderAMOverview() {
+  const container = document.getElementById('tab-am-showrooms');
+  if (!container) return;
+
+  const showrooms = getAMShowrooms();
+  
+  if (showrooms.length === 0) {
+    container.innerHTML = `
+      <div class="page-title-section">
+        <div>
+          <h1 class="page-title">Assigned Showrooms</h1>
+          <p class="page-subtitle">Consolidated view of all active dealerships assigned to you.</p>
+        </div>
+      </div>
+      <div class="glass-card" style="padding: 40px; text-align: center; color: var(--text-muted);">
+        No showrooms assigned to your account.
+      </div>
+    `;
+    return;
+  }
+
+  let rowsHtml = showrooms.map(showroom => {
+    // Calculate CPL & metrics
+    const filteredData = showroom.dailyData.filter(d => new Date(d.date) >= new Date("2026-05-01"));
+    const spend = filteredData.reduce((sum, d) => sum + d.spend, 0);
+    const leads = filteredData.reduce((sum, d) => sum + d.leads, 0);
+    const currentCPL = leads > 0 ? Math.round(spend / leads) : 0;
+    
+    const onTrack = currentCPL <= showroom.committedCPL;
+    const cplStatusText = onTrack ? 'On Track' : 'Above Target';
+    
+    // Tickets
+    const openTicketsCount = (showroom.tickets || []).filter(t => t.status === 'Open' || t.status === 'In Review').length;
+    
+    // Budget
+    const cycleStart = new Date("2026-04-25");
+    const cycleEnd = new Date("2026-05-25");
+    const cycleData = showroom.dailyData.filter(d => {
+      const dDate = new Date(d.date);
+      return dDate >= cycleStart && dDate <= cycleEnd;
+    });
+    const cycleSpent = cycleData.reduce((sum, d) => sum + d.spend, 0);
+    const spentPct = Math.min(100, Math.round((cycleSpent / showroom.totalBudget) * 100));
+    
+    return `
+      <tr style="border-bottom: 1px solid var(--border-color); vertical-align: middle;">
+        <td style="padding: 16px 12px;">
+          <div style="font-weight: 700; font-size: 14px; color: var(--text-primary);">${showroom.dealerName}</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${showroom.name}</div>
+        </td>
+        <td style="padding: 16px 12px; max-width: 200px;">
+          <div style="font-weight: 600; font-size: 12.5px; color: var(--text-primary);">${showroom.campaignName}</div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">${showroom.objective}</div>
+        </td>
+        <td style="padding: 16px 12px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 13px; font-weight: 700;">₹${currentCPL.toLocaleString()} <span style="font-size: 11px; font-weight: 400; color: var(--text-muted);">CPL</span></div>
+            <div style="font-size: 11px; color: var(--text-secondary);">Target: ₹${showroom.committedCPL}</div>
+            <span class="status-pill ${onTrack ? 'status-active' : 'status-danger'}" style="width: fit-content; padding: 2px 6px; font-size: 10px; border-radius: 4px; font-weight: 700; text-transform: uppercase; background: ${onTrack ? 'rgba(57, 181, 74, 0.15)' : 'rgba(220, 53, 69, 0.15)'}; color: ${onTrack ? '#39b54a' : 'var(--color-danger)'};">
+              ${cplStatusText}
+            </span>
+          </div>
+        </td>
+        <td style="padding: 16px 12px;">
+          <div style="display: flex; flex-direction: column; gap: 6px; min-width: 120px;">
+            <div class="progress-bar-bg" style="height: 6px; width: 100%; margin: 0; background: var(--bg-card-hover); border-radius: 3px; overflow: hidden;">
+              <div class="progress-bar-fill" style="width: ${spentPct}%; background: ${spentPct > 100 ? 'var(--color-danger)' : 'var(--accent-cyan)'}; box-shadow: none; height: 100%;"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted);">
+              <span>₹${cycleSpent.toLocaleString()} spent</span>
+              <span>${spentPct}%</span>
+            </div>
+          </div>
+        </td>
+        <td style="padding: 16px 12px; text-align: center;">
+          <span class="status-pill" style="background: ${openTicketsCount > 0 ? 'rgba(255, 193, 7, 0.15)' : 'rgba(57, 181, 74, 0.15)'}; color: ${openTicketsCount > 0 ? 'var(--color-warning)' : '#39b54a'}; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px;">
+            ${openTicketsCount} Open
+          </span>
+        </td>
+        <td style="padding: 16px 12px; text-align: right;">
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button class="btn btn-primary" style="padding: 6px 10px; font-size: 11.5px;" onclick="window.selectShowroomChat('${showroom.dealerKey}', '${showroom.locId}')">💬 Chat</button>
+            <button class="btn" style="padding: 6px 10px; font-size: 11.5px;" onclick="switchTab('am-tickets')">🎫 Tickets</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="page-title-section">
+      <div>
+        <h1 class="page-title">Assigned Showrooms Tracker</h1>
+        <p class="page-subtitle">Consolidated live tracker for campaign metrics, budgets, and status of dealerships assigned to ${appState.currentUser.name}.</p>
+      </div>
+    </div>
+    
+    <div class="glass-card" style="padding: 0; overflow-x: auto; width: 100%;">
+      <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600; background: rgba(0, 0, 0, 0.02);">
+            <th style="padding: 12px 12px;">Showroom / Dealer</th>
+            <th style="padding: 12px 12px;">Active Campaign & Objective</th>
+            <th style="padding: 12px 12px;">Goal Status</th>
+            <th style="padding: 12px 12px;">Budget Pacing</th>
+            <th style="padding: 12px 12px; text-align: center;">Support Tickets</th>
+            <th style="padding: 12px 12px; text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderAMChat() {
+  const channelsList = document.getElementById('am-chat-channels-list');
+  if (!channelsList) return;
+
+  const showrooms = getAMShowrooms();
+  channelsList.innerHTML = '';
+
+  showrooms.forEach(showroom => {
+    const channelId = `${showroom.dealerKey}_${showroom.locId}`;
+    const isActive = appState.activeChatLocationId === channelId;
+    
+    const lastMsg = showroom.messages && showroom.messages.length > 0 
+      ? showroom.messages[showroom.messages.length - 1] 
+      : null;
+    const snippet = lastMsg ? (lastMsg.text.length > 30 ? lastMsg.text.substring(0, 30) + '...' : lastMsg.text) : "No messages yet";
+    const timeStr = lastMsg ? new Date(lastMsg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+    
+    // Badge logic: Action Required if last sender was 'dealer'
+    const needsAction = lastMsg && lastMsg.sender === 'dealer';
+    const statusBadge = needsAction
+      ? `<span class="status-pill status-danger" style="font-size: 9px; padding: 2px 4px; border-radius: 4px; font-weight: 700; margin-left: auto; background: rgba(220, 53, 69, 0.15); color: var(--color-danger);">⚠️ Action</span>`
+      : `<span class="status-pill status-paid" style="font-size: 9px; padding: 2px 4px; border-radius: 4px; font-weight: 700; margin-left: auto; background: rgba(57, 181, 74, 0.15); color: #39b54a;">✔️ Closed</span>`;
+
+    const item = document.createElement('div');
+    item.className = `am-channel-item ${isActive ? 'active' : ''}`;
+    item.style.padding = '12px';
+    item.style.borderRadius = '8px';
+    item.style.cursor = 'pointer';
+    item.style.background = isActive ? 'rgba(13, 202, 240, 0.08)' : 'rgba(255, 255, 255, 0.02)';
+    item.style.border = isActive ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)';
+    item.style.display = 'flex';
+    item.style.flexDirection = 'column';
+    item.style.gap = '4px';
+    item.style.transition = 'all 0.2s';
+    
+    item.onclick = () => {
+      appState.activeChatLocationId = channelId;
+      renderAMChat();
+    };
+
+    item.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span style="font-weight: 700; font-size: 13px; color: var(--text-primary);">${showroom.dealerName}</span>
+        <span style="font-size: 10px; color: var(--text-muted);">${timeStr}</span>
+      </div>
+      <div style="font-size: 11px; color: var(--text-secondary);">${showroom.name}</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 4px;">
+        <span style="font-size: 11px; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 150px;">${snippet}</span>
+        ${statusBadge}
+      </div>
+    `;
+    channelsList.appendChild(item);
+  });
+
+  // Active chat conversation pane
+  const inactiveMsg = document.getElementById('am-chat-inactive-msg');
+  const chatTitle = document.getElementById('am-chat-active-title');
+  const messagesContainer = document.getElementById('am-chat-messages-container');
+
+  if (!appState.activeChatLocationId) {
+    inactiveMsg.style.display = 'flex';
+    messagesContainer.innerHTML = '';
+    chatTitle.textContent = "Select a Chat Room";
+  } else {
+    inactiveMsg.style.display = 'none';
+    const [dKey, locId] = appState.activeChatLocationId.split('_');
+    const dealer = DEALERSHIPS[dKey];
+    const showroom = dealer ? dealer.locations[locId] : null;
+
+    if (showroom) {
+      chatTitle.textContent = `Chatting with ${dealer.name} - ${showroom.name}`;
+      messagesContainer.innerHTML = '';
+
+      if (!showroom.messages || showroom.messages.length === 0) {
+        messagesContainer.innerHTML = `<div class="no-logs-msg" style="padding: 24px;">No messages in this chat room.</div>`;
+      } else {
+        showroom.messages.forEach(msg => {
+          const el = document.createElement('div');
+          el.className = `chat-message ${msg.sender}`;
+          
+          const timeStr = new Date(msg.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          el.innerHTML = `
+            <div>${msg.text}</div>
+            <span class="message-time">${timeStr}</span>
+          `;
+          messagesContainer.appendChild(el);
+        });
+
+        // Auto scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+    }
+  }
+}
+
+function sendAMChatMessage() {
+  const input = document.getElementById('am-chat-input-field');
+  const txt = input.value.trim();
+  if (!txt || !appState.activeChatLocationId) return;
+
+  const [dKey, locId] = appState.activeChatLocationId.split('_');
+  const dealer = DEALERSHIPS[dKey];
+  const showroom = dealer ? dealer.locations[locId] : null;
+
+  if (showroom) {
+    const newMsg = {
+      sender: 'am',
+      text: txt,
+      time: new Date().toISOString()
+    };
+
+    if (!showroom.messages) showroom.messages = [];
+    showroom.messages.push(newMsg);
+    
+    renderAMChat();
+    input.value = '';
+    showToast('Message Sent', 'Your reply has been sent.');
+  }
+}
+
+function renderAMTickets() {
+  const container = document.getElementById('am-tickets-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const showrooms = getAMShowrooms();
+  let allTickets = [];
+
+  showrooms.forEach(showroom => {
+    if (showroom.tickets && showroom.tickets.length > 0) {
+      showroom.tickets.forEach(tkt => {
+        allTickets.push({
+          ...tkt,
+          dealerKey: showroom.dealerKey,
+          locId: showroom.locId,
+          showroomName: showroom.name,
+          dealerName: showroom.dealerName
+        });
+      });
+    }
+  });
+
+  // Sort: Open and In Review first, then Resolved, then by date descending
+  allTickets.sort((a, b) => {
+    const statusOrder = { 'Open': 1, 'In Review': 2, 'Resolved': 3 };
+    if (statusOrder[a.status] !== statusOrder[b.status]) {
+      return statusOrder[a.status] - statusOrder[b.status];
+    }
+    return new Date(b.date) - new Date(a.date);
+  });
+
+  if (allTickets.length === 0) {
+    container.innerHTML = `<div class="no-logs-msg" style="padding: 24px;">No support tickets registered across your assigned showrooms.</div>`;
+    return;
+  }
+
+  allTickets.forEach((tkt, idx) => {
+    const item = document.createElement('div');
+    item.className = 'ticket-item glass-card';
+    
+    let historyHtml = tkt.history.map(h => `
+      <div style="display: flex; gap: 8px; font-size: 11px; margin-top: 4px; color: var(--text-muted);">
+        <span>•</span>
+        <span><strong>[${h.date}] ${h.status}</strong>: ${h.note}</span>
+      </div>
+    `).join('');
+
+    let actionBtn = '';
+    if (tkt.status === 'Open') {
+      actionBtn = `<button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="window.advanceAMTicket('${tkt.dealerKey}', '${tkt.locId}', '${tkt.id}', 'In Review')">⚙️ Move to In Review</button>`;
+    } else if (tkt.status === 'In Review') {
+      actionBtn = `<button class="btn btn-success" style="padding: 6px 12px; font-size: 12px; background: #39b54a; border-color: #39b54a; color: white;" onclick="window.advanceAMTicket('${tkt.dealerKey}', '${tkt.locId}', '${tkt.id}', 'Resolved')">✔️ Resolve Ticket</button>`;
+    } else {
+      actionBtn = `<span style="font-size: 12px; font-weight: 700; color: #39b54a;">✔️ Resolved</span>`;
+    }
+
+    item.innerHTML = `
+      <div class="ticket-header">
+        <span class="ticket-id">${tkt.id}</span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <span style="font-size: 11px; background: HSLA(222, 10%, 20%, 0.5); padding: 2px 6px; border-radius: 4px;">Priority: ${tkt.priority}</span>
+          <span class="ticket-status ${tkt.status.replace(' ', '-')}">${tkt.status}</span>
+        </div>
+      </div>
+      <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">Showroom: ${tkt.dealerName} - ${tkt.showroomName}</div>
+      <div class="ticket-subject" style="font-weight: 700; font-size: 14px; margin-bottom: 6px;">${tkt.subject}</div>
+      <div class="ticket-desc" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">${tkt.description}</div>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 8px; flex-wrap: wrap; gap: 10px;">
+        <div style="font-size: 11px; color: var(--text-muted);">
+          <span>Created: ${tkt.date}</span>
+          <button class="ticket-history-btn" style="background: none; border: none; color: var(--accent-cyan); cursor: pointer; margin-left: 10px;" onclick="window.toggleTicketHistory(${idx})">Activity Logs</button>
+        </div>
+        <div>
+          ${actionBtn}
+        </div>
+      </div>
+      <div id="tkt-history-${idx}" style="display: none; border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px;">
+        <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Activity Logs</span>
+        ${historyHtml}
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+window.advanceAMTicket = (dKey, locId, tktId, newStatus) => {
+  const dealer = DEALERSHIPS[dKey];
+  const showroom = dealer ? dealer.locations[locId] : null;
+  if (!showroom) return;
+
+  const tkt = (showroom.tickets || []).find(t => t.id === tktId);
+  if (!tkt) return;
+
+  const oldStatus = tkt.status;
+  tkt.status = newStatus;
+  tkt.history.push({
+    date: new Date().toISOString().split('T')[0],
+    status: newStatus,
+    note: `Status updated to ${newStatus} by Account Manager ${appState.currentUser.name}.`
+  });
+
+  renderAMTickets();
+  renderAMOverview(); // Refresh overview counts
+  showToast('Ticket Updated', `${tktId} status moved from ${oldStatus} ➔ ${newStatus}`);
+};
+
+window.selectShowroomChat = (dealerKey, locId) => {
+  appState.activeChatLocationId = `${dealerKey}_${locId}`;
+  switchTab('am-chat');
 };

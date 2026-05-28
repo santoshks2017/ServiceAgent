@@ -29,8 +29,10 @@
         
         <div class="mock-info-box">
           <strong>Demo Login Details:</strong><br>
-          • Rohan Motors: <code>9876543210</code> (OTP: 123456)<br>
-          • Sethi Mahindra Motors: <code>9123456789</code> (OTP: 654321)
+          • Rohan Motors (Dealer): <code>9876543210</code> (OTP: 123456)<br>
+          • Sethi Mahindra Motors (Dealer): <code>9123456789</code> (OTP: 654321)<br>
+          • Rohan Verma (Account Manager): <code>9999999999</code> (OTP: 111111)<br>
+          • Priyanka Sen (Account Manager): <code>8888888888</code> (OTP: 222222)
         </div>
       </div>
 
@@ -66,7 +68,8 @@
         <span class="sidebar-title"><span style="font-weight: 800;">CarDekho</span> <span style="font-weight: 300; font-size:14px; opacity:0.8;">NCBD</span></span>
       </div>
 
-      <nav class="sidebar-nav">
+      <!-- Dealer Sidebar Nav -->
+      <nav id="sidebar-dealer-nav" class="sidebar-nav">
         <button class="nav-item active" data-tab="dashboard">
           <span>📊</span> Dashboard
         </button>
@@ -87,6 +90,19 @@
         </button>
         <button class="nav-item" data-tab="settings">
           <span>⚙️</span> Settings
+        </button>
+      </nav>
+
+      <!-- AM Sidebar Nav -->
+      <nav id="sidebar-am-nav" class="sidebar-nav" style="display: none;">
+        <button class="nav-item active" data-tab="am-showrooms">
+          <span>🏢</span> Showrooms
+        </button>
+        <button class="nav-item" data-tab="am-chat">
+          <span>💬</span> Chat Center
+        </button>
+        <button class="nav-item" data-tab="am-tickets">
+          <span>🎟️</span> Tickets Console
         </button>
       </nav>
 
@@ -125,21 +141,12 @@
             </button>
           </div>
 
-          <!-- Dealer Profile Strip -->
+          <!-- User Profile Strip (Shared, populated dynamically) -->
           <div class="dealer-profile-strip">
-            <div id="dealer-avatar" class="avatar">RM</div>
+            <div id="user-avatar" class="avatar">RM</div>
             <div>
-              <div style="font-weight: 600;" id="dealer-name-header">Rohan Motors</div>
-              <div style="font-size: 10px; color: var(--text-muted);">Dealership Portal</div>
-            </div>
-          </div>
-
-          <!-- Account Manager Profile Strip -->
-          <div class="am-profile-strip">
-            <div id="am-avatar" class="avatar">AM</div>
-            <div>
-              <div style="font-weight: 600;" id="am-name">Account Manager</div>
-              <div style="font-size: 10px; color: var(--text-muted);" id="am-status">AM (Online)</div>
+              <div style="font-weight: 600;" id="user-name-header">Rohan Motors</div>
+              <div style="font-size: 10px; color: var(--text-muted);" id="user-role-label">Dealership Portal</div>
             </div>
           </div>
         </div>
@@ -436,6 +443,69 @@
               
               <button id="save-settings-btn" class="btn btn-primary" style="margin-top: 10px; align-self: flex-start;">Save Preferences</button>
             </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 8: AM OVERVIEW (SHOWROOMS) -->
+        <!-- ========================================== -->
+        <section id="tab-am-showrooms" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <!-- Populated dynamically -->
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 9: AM CHAT CENTER -->
+        <!-- ========================================== -->
+        <section id="tab-am-chat" class="tab-pane" style="display: none; flex-direction: column; gap: 24px; min-height: 480px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">AM Chat Center</h1>
+              <p class="page-subtitle">Select a dealership chat channel below to respond to messages. Badge indicates action requirements.</p>
+            </div>
+          </div>
+          
+          <div class="am-chat-layout" style="display: flex; gap: 24px; min-height: 480px; width: 100%;">
+            <!-- Channels List Sidebar -->
+            <div class="glass-card am-chat-channels" style="flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 12px; padding: 16px;">
+              <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">Active Channels</h3>
+              <div id="am-chat-channels-list" style="display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex-grow: 1;">
+                <!-- Channels rendered dynamically -->
+              </div>
+            </div>
+            
+            <!-- Chat Conversations Area -->
+            <div class="glass-card am-chat-box-wrapper" style="flex: 2.2; display: flex; flex-direction: column; padding: 0; overflow: hidden; position: relative;">
+              <div id="am-chat-inactive-msg" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--bg-card); color: var(--text-muted); font-size: 14px; z-index: 10;">
+                Select a channel on the left to view conversation.
+              </div>
+              <div class="chat-box" style="height: 100%; display: flex; flex-direction: column; width: 100%;">
+                <div class="chat-header-bar" style="padding: 16px 24px; border-bottom: 1px solid var(--border-color); font-weight: 700; font-family: var(--font-display); font-size: 15px;" id="am-chat-active-title">
+                  Chatting with Showroom
+                </div>
+                <div id="am-chat-messages-container" class="chat-messages" style="flex-grow: 1; padding: 20px; overflow-y: auto; min-height: 250px;">
+                  <!-- Messages rendered dynamically -->
+                </div>
+                <div class="chat-input-row" style="padding: 16px; border-top: 1px solid var(--border-color);">
+                  <input type="text" id="am-chat-input-field" class="chat-input" placeholder="Type your response here...">
+                  <button id="am-chat-send-btn" class="btn btn-primary">Send Reply</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 10: AM TICKETS CONSOLE -->
+        <!-- ========================================== -->
+        <section id="tab-am-tickets" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">AM Tickets Console</h1>
+              <p class="page-subtitle">Consolidated service tickets list across all your assigned dealerships. Click details to advance ticket status.</p>
+            </div>
+          </div>
+          <div id="am-tickets-list" style="display: flex; flex-direction: column; gap: 16px;">
+            <!-- Rendered dynamically -->
           </div>
         </section>
 
