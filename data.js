@@ -73,14 +73,14 @@ function generateDailyData(startDateStr, committedCPL, targetDailyBudget, totalD
 }
 
 export const DEALERSHIPS = {
-  "apex_hyundai": {
-    name: "Apex Hyundai Group",
+  "rohan_motors": {
+    name: "Rohan Motors",
     phone: "9876543210",
     otp: "123456",
     locations: {
       "noida": {
         id: "noida",
-        name: "Apex Hyundai - Noida Sec 63",
+        name: "Rohan Motors - Noida Sec 63",
         status: "Active",
         startDate: "2026-03-20",
         committedCPL: 450,
@@ -88,6 +88,19 @@ export const DEALERSHIPS = {
         billingCycle: "April 25 - May 25",
         assignedAM: "Rohan Verma",
         amEmail: "rohan.verma@cardekho.com",
+        subscription: {
+          status: "Active",
+          planName: "Premium Agency Retainer",
+          fee: 25000,
+          billingCycle: "Monthly",
+          nextPaymentDate: "2026-06-25",
+          paymentMethod: "Visa ending in 4321",
+          invoices: [
+            { id: "INV-2026-008", date: "2026-05-25", amount: 25000, status: "Paid" },
+            { id: "INV-2026-007", date: "2026-04-25", amount: 25000, status: "Paid" },
+            { id: "INV-2026-006", date: "2026-03-25", amount: 25000, status: "Paid" }
+          ]
+        },
         dailyData: generateDailyData("2026-03-20", 430, 2500, 67),
         optimisations: [
           {
@@ -171,7 +184,7 @@ export const DEALERSHIPS = {
       },
       "delhi": {
         id: "delhi",
-        name: "Apex Hyundai - South Delhi (Okhla)",
+        name: "Rohan Motors - South Delhi (Okhla)",
         status: "Active",
         startDate: "2026-04-10",
         committedCPL: 500,
@@ -179,6 +192,18 @@ export const DEALERSHIPS = {
         billingCycle: "April 25 - May 25",
         assignedAM: "Rohan Verma",
         amEmail: "rohan.verma@cardekho.com",
+        subscription: {
+          status: "Active",
+          planName: "Standard Agency Retainer",
+          fee: 20000,
+          billingCycle: "Monthly",
+          nextPaymentDate: "2026-06-25",
+          paymentMethod: "Mastercard ending in 5543",
+          invoices: [
+            { id: "INV-2026-009", date: "2026-05-25", amount: 20000, status: "Paid" },
+            { id: "INV-2026-008", date: "2026-04-25", amount: 20000, status: "Paid" }
+          ]
+        },
         dailyData: generateDailyData("2026-04-10", 520, 3500, 46), // average CPL 520 is slightly overperforming target of 500 (meaning CPL is higher, so red indicator!)
         optimisations: [
           {
@@ -284,6 +309,19 @@ export const DEALERSHIPS = {
         billingCycle: "May 01 - May 31",
         assignedAM: "Priyanka Sen",
         amEmail: "priyanka.sen@cardekho.com",
+        subscription: {
+          status: "Active",
+          planName: "Enterprise Agency Retainer",
+          fee: 35000,
+          billingCycle: "Monthly",
+          nextPaymentDate: "2026-06-01",
+          paymentMethod: "HDFC Visa ending in 9876",
+          invoices: [
+            { id: "INV-2026-005", date: "2026-05-01", amount: 35000, status: "Paid" },
+            { id: "INV-2026-004", date: "2026-04-01", amount: 35000, status: "Paid" },
+            { id: "INV-2026-003", date: "2026-03-01", amount: 35000, status: "Paid" }
+          ]
+        },
         dailyData: generateDailyData("2026-03-01", 610, 5000, 86),
         optimisations: [
           {

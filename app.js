@@ -98,6 +98,10 @@ function loginUser(dealer, targetLocationId = null) {
   document.getElementById('auth-overlay').style.display = 'none';
   document.getElementById('app-view').style.display = 'flex';
   
+  // Update dealer profile in header
+  document.getElementById('dealer-name-header').textContent = dealer.name;
+  document.getElementById('dealer-avatar').textContent = dealer.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
+
   // Clone location specific data to state
   const locData = dealer.locations[appState.currentLocationId];
   appState.tickets = [...(locData.tickets || [])];
@@ -241,6 +245,10 @@ function initAppDashboard() {
       { id: Date.now(), title: 'Welcome aboard!', text: `${locData.name} campaign is live. Track metrics daily.`, date: locData.startDate, read: false }
     ])];
     
+    // Update dealer profile in header in case of switcher change
+    document.getElementById('dealer-name-header').textContent = appState.currentUser.name;
+    document.getElementById('dealer-avatar').textContent = appState.currentUser.name.split(' ').map(n=>n[0]).join('').substring(0, 2);
+
     // Save session change
     localStorage.setItem('cd_ncbd_session', JSON.stringify({
       dealerId: Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key] === appState.currentUser),
@@ -252,6 +260,7 @@ function initAppDashboard() {
     renderReports();
     renderTickets();
     renderChat();
+    renderBilling();
     updateNotificationsUI();
     showToast('Location Switched', `Now viewing ${locData.name}`);
   };
@@ -369,6 +378,7 @@ function initAppDashboard() {
   renderReports();
   renderTickets();
   renderChat();
+  renderBilling();
   updateNotificationsUI();
 }
 
@@ -387,7 +397,7 @@ function switchTab(tabId) {
   
   if (activePane && activeNavItem) {
     activePane.classList.add('active');
-    activePane.style.display = tabId === 'logs' || tabId === 'dashboard' || tabId === 'reports' ? 'flex' : 'grid';
+    activePane.style.display = tabId === 'logs' || tabId === 'dashboard' || tabId === 'reports' || tabId === 'billing' ? 'flex' : 'grid';
     activeNavItem.classList.add('active');
     
     // Draw charts if tab is dashboard
@@ -1376,3 +1386,125 @@ function showToast(title, body, type = 'success', action = null) {
     }
   }, 6000);
 }
+
+// ==========================================
+// 12. SUBSCRIPTION & BILLING PANEL
+// ==========================================
+function renderBilling() {
+  const container = document.getElementById('tab-billing');
+  if (!container) return;
+  
+  const loc = appState.currentUser.locations[appState.currentLocationId];
+  if (!loc) return;
+
+  const sub = loc.subscription || {
+    status: "Active",
+    planName: "Standard Agency Retainer",
+    fee: 20000,
+    billingCycle: "Monthly",
+    nextPaymentDate: "2026-06-25",
+    paymentMethod: "Mastercard ending in 9876",
+    invoices: [
+      { id: "INV-2026-004", date: "2026-05-25", amount: 20000, status: "Paid" },
+      { id: "INV-2026-003", date: "2026-04-25", amount: 20000, status: "Paid" }
+    ]
+  };
+
+  container.innerHTML = `
+    <div class="page-title-section">
+      <div>
+        <h1 class="page-title">Subscription & Retainer Details</h1>
+        <p class="page-subtitle">Manage monthly agency retainer subscriptions, view payment methods, and download transaction history.</p>
+      </div>
+    </div>
+
+    <div class="billing-grid">
+      <!-- Subscription Main Details -->
+      <div class="glass-card billing-card-main">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+          <div>
+            <span class="plan-badge" style="background: rgba(13, 202, 240, 0.15); color: var(--accent-cyan); padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${sub.planName}</span>
+            <h2 style="font-family: var(--font-display); font-size: 26px; font-weight: 700; margin-top: 10px; color: var(--text-primary);">₹${sub.fee.toLocaleString()} <span style="font-size: 13px; font-weight: 400; color: var(--text-muted);">/ ${sub.billingCycle.toLowerCase()}</span></h2>
+          </div>
+          <span class="status-pill status-${sub.status.toLowerCase()}" style="background: rgba(57, 181, 74, 0.15); color: #39b54a; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase;">${sub.status}</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 8px; width: 100%;">
+          <div style="display: flex; justify-content: space-between; font-size: 13px;">
+            <span style="color: var(--text-secondary);">Next Invoice Date</span>
+            <span style="font-weight: 600; color: var(--text-primary);">${new Date(sub.nextPaymentDate).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px;">
+            <span style="color: var(--text-secondary);">Payment Method</span>
+            <span style="font-weight: 600; color: var(--text-primary);">${sub.paymentMethod}</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 8px; width: 100%; flex-wrap: wrap;">
+          <button class="btn btn-primary" onclick="window.manageBillingAction('payment')">💳 Update Card</button>
+          <button class="btn" onclick="window.manageBillingAction('plan')">⚙️ Change Plan</button>
+          <button class="btn" style="border-color: rgba(220,53,69,0.3); color: var(--color-danger); background: transparent;" onclick="window.manageBillingAction('cancel')">✕ Cancel Plan</button>
+        </div>
+      </div>
+
+      <!-- Quick Retainer SLA Terms -->
+      <div class="glass-card" style="height: fit-content; display: flex; flex-direction: column; gap: 12px;">
+        <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--text-primary);">Retainer Services</h3>
+        <ul style="font-size: 12.5px; color: var(--text-secondary); padding-left: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.4;">
+          <li>🛡️ Guaranteed CPL audit compliance checks.</li>
+          <li>📊 Dedicated account manager optimizations and bid tweaks.</li>
+          <li>📩 Daily lead synchronization checks & alerts.</li>
+        </ul>
+        <div class="mock-info-box" style="margin: 0; background: rgba(57, 181, 74, 0.05); border-color: rgba(57, 181, 74, 0.2); color: #39b54a; font-size: 11.5px; padding: 10px; border-radius: 6px;">
+          ✔️ Auto-renewal is enabled. Your next payment will be processed automatically on your billing date.
+        </div>
+      </div>
+    </div>
+
+    <!-- Invoice Table Card -->
+    <div class="glass-card" style="display: flex; flex-direction: column; gap: 16px;">
+      <h3 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; color: var(--text-primary);">Invoice History</h3>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-muted); font-weight: 600;">
+              <th style="padding: 12px 8px;">Invoice ID</th>
+              <th style="padding: 12px 8px;">Date</th>
+              <th style="padding: 12px 8px;">Amount</th>
+              <th style="padding: 12px 8px;">Status</th>
+              <th style="padding: 12px 8px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sub.invoices.map(inv => `
+              <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-primary);">
+                <td style="padding: 12px 8px; font-weight: 600;">${inv.id}</td>
+                <td style="padding: 12px 8px; color: var(--text-secondary);">${inv.date}</td>
+                <td style="padding: 12px 8px; font-weight: 600;">₹${inv.amount.toLocaleString()}</td>
+                <td style="padding: 12px 8px;"><span style="background: rgba(57, 181, 74, 0.15); color: #39b54a; padding: 2px 6px; border-radius: 4px; font-size: 10.5px; font-weight: 700;">${inv.status}</span></td>
+                <td style="padding: 12px 8px; text-align: right;">
+                  <button class="btn" style="padding: 4px 8px; font-size: 11px;" onclick="window.downloadInvoice('${inv.id}')">Download PDF</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// Global Billing Handlers
+window.manageBillingAction = (action) => {
+  if (action === 'payment') {
+    showToast('Payment Update', 'Redirecting to secure gateway to update payment details...', 'info');
+  } else if (action === 'plan') {
+    showToast('Change Plan', 'Loading premium agency packages. Your AM will contact you.', 'info');
+  } else {
+    showToast('Subscription Cancelled', 'Cancel request received. Your AM will contact you within 24 hours.', 'warning');
+  }
+};
+
+window.downloadInvoice = (invId) => {
+  showToast('Downloading Invoice', `Compiling invoice ${invId}. Initiated PDF receipt download...`, 'success');
+};

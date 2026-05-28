@@ -29,7 +29,7 @@
         
         <div class="mock-info-box">
           <strong>Demo Login Details:</strong><br>
-          • Apex Hyundai Group: <code>9876543210</code> (OTP: 123456)<br>
+          • Rohan Motors: <code>9876543210</code> (OTP: 123456)<br>
           • Sethi Mahindra Motors: <code>9123456789</code> (OTP: 654321)
         </div>
       </div>
@@ -82,6 +82,9 @@
         <button class="nav-item" data-tab="tickets">
           <span>🎟️</span> Support Tickets
         </button>
+        <button class="nav-item" data-tab="billing">
+          <span>💳</span> Billing & Plan
+        </button>
         <button class="nav-item" data-tab="settings">
           <span>⚙️</span> Settings
         </button>
@@ -122,12 +125,21 @@
             </button>
           </div>
 
+          <!-- Dealer Profile Strip -->
+          <div class="dealer-profile-strip">
+            <div id="dealer-avatar" class="avatar">RM</div>
+            <div>
+              <div style="font-weight: 600;" id="dealer-name-header">Rohan Motors</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Dealership Portal</div>
+            </div>
+          </div>
+
           <!-- Account Manager Profile Strip -->
           <div class="am-profile-strip">
             <div id="am-avatar" class="avatar">AM</div>
             <div>
               <div style="font-weight: 600;" id="am-name">Account Manager</div>
-              <div style="font-size: 10px; color: var(--text-muted);" id="am-status">Online</div>
+              <div style="font-size: 10px; color: var(--text-muted);" id="am-status">AM (Online)</div>
             </div>
           </div>
         </div>
@@ -374,6 +386,13 @@
               </ul>
             </div>
           </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 7: BILLING & SUBSCRIPTION -->
+        <!-- ========================================== -->
+        <section id="tab-billing" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <!-- Content rendered dynamically via app.js -->
         </section>
 
         <!-- ========================================== -->
