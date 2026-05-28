@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dealer Campaign Portal | CarDekho NCBD</title>
+  <link rel="stylesheet" href="/index.css">
+</head>
+<body>
+
+  <!-- ========================================== -->
+  <!-- 1. AUTHENTICATION OVERLAY (MOBILE OTP SIMULATOR) -->
+  <!-- ========================================== -->
+  <div id="auth-overlay" class="auth-overlay">
+    <div class="auth-card glass-card">
+      <div class="auth-header">
+        <div class="sidebar-logo gradient-bg" style="margin: 0 auto 12px; float: none;">CD</div>
+        <h2 class="auth-title">Dealer Campaign Portal</h2>
+        <p class="auth-desc">Enter your registered mobile number to access your Google Ads campaigns.</p>
+      </div>
+
+      <!-- Phone Input Screen -->
+      <div id="auth-phone-view" class="sim-section" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group">
+          <label for="login-phone" class="form-label">Mobile Number</label>
+          <input type="tel" id="login-phone" class="form-input" placeholder="e.g. 9876543210" maxlength="10">
+        </div>
+        <button id="send-otp-btn" class="btn btn-primary" style="padding: 12px; width: 100%;">Send Verification Code</button>
+        
+        <div class="mock-info-box">
+          <strong>Demo Login Details:</strong><br>
+          • Apex Hyundai Group: <code>9876543210</code> (OTP: 123456)<br>
+          • Sethi Mahindra Motors: <code>9123456789</code> (OTP: 654321)
+        </div>
+      </div>
+
+      <!-- OTP Verification Screen -->
+      <div id="auth-otp-view" class="sim-section" style="display: none; flex-direction: column; gap: 16px;">
+        <div class="form-group">
+          <label class="form-label" style="text-align: center;">Enter 6-Digit OTP</label>
+          <div class="otp-box">
+            <input type="text" class="otp-input" maxlength="1" data-index="0">
+            <input type="text" class="otp-input" maxlength="1" data-index="1">
+            <input type="text" class="otp-input" maxlength="1" data-index="2">
+            <input type="text" class="otp-input" maxlength="1" data-index="3">
+            <input type="text" class="otp-input" maxlength="1" data-index="4">
+            <input type="text" class="otp-input" maxlength="1" data-index="5">
+          </div>
+        </div>
+        <p class="otp-timer">Resend code in <span id="otp-countdown">30</span>s</p>
+        <button id="verify-otp-btn" class="btn btn-primary" style="padding: 12px; width: 100%;">Verify & Log In</button>
+        <button id="back-to-phone-btn" class="btn" style="padding: 8px; width: 100%; border: none; background: transparent;">Back to Phone Number</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 2. MAIN APPLICATION WORKSPACE -->
+  <!-- ========================================== -->
+  <div id="app-view" class="app-container" style="display: none;">
+    
+    <!-- Sidebar Navigation -->
+    <aside id="app-sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo gradient-bg">CD</div>
+        <span class="sidebar-title"><span style="font-weight: 800;">CarDekho</span> <span style="font-weight: 300; font-size:14px; opacity:0.8;">NCBD</span></span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="dashboard">
+          <span>📊</span> Dashboard
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <span>🛠️</span> Optimisation Log
+        </button>
+        <button class="nav-item" data-tab="reports">
+          <span>📁</span> Reports
+        </button>
+        <button class="nav-item" data-tab="chat">
+          <span>💬</span> AM Chat
+        </button>
+        <button class="nav-item" data-tab="tickets">
+          <span>🎟️</span> Support Tickets
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span>⚙️</span> Settings
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div>Client Support:</div>
+        <div style="color: var(--text-primary); font-weight: 600;">ncbd-support@cardekho.com</div>
+        <button id="logout-btn" class="btn" style="padding: 6px; font-size: 11px; margin-top: 8px; border-color: rgba(220,53,69,0.3); color: var(--color-danger);">Log Out</button>
+      </div>
+    </aside>
+
+    <!-- Main View Panel -->
+    <main class="main-content">
+      
+      <!-- Top Header Bar -->
+      <header class="header">
+        <div class="header-left">
+          <button id="mobile-menu-toggle" class="mobile-menu-btn">☰</button>
+          <div class="location-selector-wrapper">
+            <select id="location-switcher" class="location-select">
+              <!-- Dynamically populated options -->
+            </select>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <!-- Theme Switcher Button -->
+          <button id="theme-toggle-btn" class="icon-btn" title="Toggle Light/Dark Theme">
+            <span id="theme-icon">☀️</span>
+          </button>
+          
+          <!-- Live Notification Bell with Native Popover Trigger -->
+          <div class="notification-badge-container">
+            <button class="icon-btn" commandfor="notification-popover" command="toggle-popover" id="notif-bell-btn">
+              <span>🔔</span>
+              <span id="notif-badge" class="badge-dot" style="display: none;"></span>
+            </button>
+          </div>
+
+          <!-- Account Manager Profile Strip -->
+          <div class="am-profile-strip">
+            <div id="am-avatar" class="avatar">AM</div>
+            <div>
+              <div style="font-weight: 600;" id="am-name">Account Manager</div>
+              <div style="font-size: 10px; color: var(--text-muted);" id="am-status">Online</div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Native Popover Element for Notification Logs -->
+      <div id="notification-popover" popover>
+        <div class="popover-header">
+          <span class="popover-title">Notifications</span>
+          <button id="clear-notif-btn" style="background: transparent; border: none; font-size: 11px; color: var(--accent-cyan); cursor: pointer;">Clear All</button>
+        </div>
+        <div id="popover-notif-list" class="popover-list">
+          <div class="no-logs-msg" style="padding: 16px; font-size: 12px;">No new alerts</div>
+        </div>
+      </div>
+
+      <!-- Scrollable Tab Container -->
+      <div class="page-container">
+        
+        <!-- ========================================== -->
+        <!-- TAB 1: PERFORMANCE DASHBOARD -->
+        <!-- ========================================== -->
+        <section id="tab-dashboard" class="tab-pane active" style="display: flex; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">Campaign Dashboard</h1>
+              <p class="page-subtitle" id="dashboard-subtitle">Apex Hyundai - Noida Sec 63 • Active since Mar 20, 2026</p>
+            </div>
+            
+            <div class="controls-row">
+              <span style="font-size: 11px; color: var(--text-muted); font-weight: 500;" id="last-updated-stamp">Updated 2 hours ago</span>
+              <div class="date-pill-group">
+                <button class="date-pill" data-range="7d">7 Days</button>
+                <button class="date-pill" data-range="30d">30 Days</button>
+                <button class="date-pill active" data-range="month">This Month</button>
+                <button class="date-pill" data-range="custom">Custom</button>
+              </div>
+              <div id="custom-date-inputs" style="display: none; align-items: center; gap: 8px;">
+                <input type="date" id="date-start" class="form-input" style="padding: 5px; font-size: 11px; width: 110px;">
+                <span style="font-size: 11px; color: var(--text-muted);">to</span>
+                <input type="date" id="date-end" class="form-input" style="padding: 5px; font-size: 11px; width: 110px;">
+                <button id="apply-custom-dates" class="btn btn-primary" style="padding: 6px 10px; font-size: 11px;">Apply</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Metric Indicators -->
+          <div class="metrics-grid">
+            <div class="metric-card glass-card accent-cyan">
+              <span class="metric-label">Leads Generated</span>
+              <span class="metric-value" id="stat-leads">-</span>
+              <div class="metric-trend up" id="stat-leads-trend">--</div>
+            </div>
+            
+            <div class="metric-card glass-card accent-purple">
+              <span class="metric-label">Cost Per Lead (CPL)</span>
+              <span class="metric-value" id="stat-cpl">₹-</span>
+              <div class="metric-badge" id="stat-cpl-badge">--</div>
+            </div>
+
+            <div class="metric-card glass-card accent-info">
+              <span class="metric-label">Total Clicks</span>
+              <span class="metric-value" id="stat-clicks">-</span>
+              <div class="metric-trend up" id="stat-ctr">--</div>
+            </div>
+
+            <div class="metric-card glass-card accent-success">
+              <span class="metric-label">Total Spent</span>
+              <span class="metric-value" id="stat-spend">₹-</span>
+              <div class="metric-trend neutral" id="stat-impressions">--</div>
+            </div>
+          </div>
+
+          <!-- Performance & Budget Charts Grid -->
+          <div class="charts-grid">
+            <!-- Pacing Chart -->
+            <div class="glass-card">
+              <div class="chart-header">
+                <span class="chart-title">📈 Daily Lead Volume & Trend</span>
+                <span style="font-size: 11px; color: var(--text-muted);">Target Committed CPL threshold: <span id="stat-committed-cpl-label">₹-</span></span>
+              </div>
+              <div class="chart-container">
+                <canvas id="leads-chart" class="canvas-chart"></canvas>
+              </div>
+            </div>
+
+            <!-- Budget Tracker Card -->
+            <div class="glass-card budget-util-card">
+              <div class="chart-header" style="margin-bottom: 0;">
+                <span class="chart-title">💰 Budget Utilisation</span>
+              </div>
+              
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-bg">
+                  <div id="budget-progress-fill" class="progress-bar-fill gradient-bg" style="width: 0%;"></div>
+                </div>
+                <div class="progress-labels">
+                  <span id="budget-spent-percent">0% Spent</span>
+                  <span id="budget-remaining-percent">100% Left</span>
+                </div>
+              </div>
+
+              <div class="budget-stats-row">
+                <div class="budget-stat-box">
+                  <span class="budget-stat-label">Contracted Budget</span>
+                  <div class="budget-stat-value" id="stat-contracted-budget">₹-</div>
+                </div>
+                <div class="budget-stat-box">
+                  <span class="budget-stat-label">Remaining Budget</span>
+                  <div class="budget-stat-value remaining" id="stat-remaining-budget">₹-</div>
+                </div>
+              </div>
+
+              <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <div class="chart-header" style="margin-bottom: 12px;">
+                  <span class="chart-title" style="font-size: 13px;">Daily Spend Burn Pacing</span>
+                </div>
+                <div class="chart-container" style="height: 120px;">
+                  <canvas id="spend-chart" class="canvas-chart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Channel Share Breakdown (P0 lead source breakdown) -->
+          <div class="glass-card">
+            <div class="chart-header">
+              <span class="chart-title">📍 Lead Source Breakdown</span>
+            </div>
+            <div style="display: flex; gap: 40px; align-items: center; justify-content: space-around; flex-wrap: wrap;">
+              <div style="display: flex; flex-direction: column; gap: 12px; flex-grow: 1; max-width: 400px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                  <span>🔍 Google Search (High-intent keywords)</span>
+                  <span style="font-weight: 600;" id="source-search-val">-</span>
+                </div>
+                <div class="progress-bar-bg" style="height: 8px;">
+                  <div id="source-search-bar" class="progress-bar-fill gradient-bg" style="width: 0%; box-shadow: none;"></div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-top: 8px;">
+                  <span>🖼️ Google Display / Discovery (Visual ads)</span>
+                  <span style="font-weight: 600;" id="source-display-val">-</span>
+                </div>
+                <div class="progress-bar-bg" style="height: 8px;">
+                  <div id="source-display-bar" class="progress-bar-fill" style="width: 0%; background: var(--accent-purple); box-shadow: none;"></div>
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary); max-width: 300px;">
+                <p>💡 <strong>Note:</strong> Search campaigns drive lead volume with high buying interest. Display campaigns build local dealership brand recall around your geographical service radius.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 2: OPTIMISATION LOG -->
+        <!-- ========================================== -->
+        <section id="tab-logs" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">Optimisation Activity Log</h1>
+              <p class="page-subtitle">Chronological record of manual campaign adjustments made by the NCBD account management team.</p>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div id="opt-timeline" class="timeline">
+              <!-- Logs populated dynamically -->
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 3: REPORTS DOWNLOAD -->
+        <!-- ========================================== -->
+        <section id="tab-reports" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">Monthly Reports</h1>
+              <p class="page-subtitle">Download finalized monthly PDF performance digests or export custom Excel worksheets.</p>
+            </div>
+            
+            <button id="excel-export-btn" class="btn btn-primary">📊 Export Custom Range data to CSV</button>
+          </div>
+
+          <div id="reports-grid" class="reports-layout">
+            <!-- Populated dynamically -->
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 4: ACCOUNT MANAGER CHAT -->
+        <!-- ========================================== -->
+        <section id="tab-chat" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">Chat with Account Manager</h1>
+              <p class="page-subtitle">Discuss campaign performance or request details on ongoing optimizations directly with your AM.</p>
+            </div>
+          </div>
+
+          <div class="glass-card chat-layout">
+            <div class="chat-box">
+              <div id="chat-messages-container" class="chat-messages">
+                <!-- Messages populated dynamically -->
+              </div>
+              <div class="chat-input-row">
+                <input type="text" id="chat-input-field" class="chat-input" placeholder="Type your message here...">
+                <button id="chat-send-btn" class="btn btn-primary">Send Message</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 5: SUPPORT TICKETS -->
+        <!-- ========================================== -->
+        <section id="tab-tickets" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">Support & Service Requests</h1>
+              <p class="page-subtitle">Submit formal tickets for campaign issues, budget amendments, or technical requests.</p>
+            </div>
+            
+            <!-- Open Modal using Invoker Command API -->
+            <button class="btn btn-primary" commandfor="support-dialog" command="show-modal">🎟️ Create Support Ticket</button>
+          </div>
+
+          <div class="support-layout">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <h3 style="font-family: var(--font-display); font-size: 16px; font-weight: 700;">Active & Past Tickets</h3>
+              <div id="tickets-list" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Tickets list -->
+              </div>
+            </div>
+            
+            <!-- Sidebar Tips -->
+            <div class="glass-card" style="height: fit-content;">
+              <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; margin-bottom: 12px;">SLA & Commitments</h3>
+              <ul style="font-size: 12.5px; color: var(--text-secondary); padding-left: 20px; display: flex; flex-direction: column; gap: 10px; line-height: 1.45;">
+                <li>🔥 <strong>High Priority:</strong> Resolved within 4 hours (e.g. Lead capture failing).</li>
+                <li>⚡ <strong>Medium Priority:</strong> Resolved within 24 hours (e.g. budget re-allocations).</li>
+                <li>📝 <strong>Low Priority:</strong> Resolved within 48 hours (e.g. minor text additions).</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- TAB 6: SETTINGS -->
+        <!-- ========================================== -->
+        <section id="tab-settings" class="tab-pane" style="display: none; flex-direction: column; gap: 24px;">
+          <div class="page-title-section">
+            <div>
+              <h1 class="page-title">Notification Settings</h1>
+              <p class="page-subtitle">Control the notification delivery channels for weekly digests, alerts, and campaign reports.</p>
+            </div>
+          </div>
+
+          <div class="glass-card" style="max-width: 600px;">
+            <h3 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Preferences</h3>
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">WhatsApp Monthly Digests</div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Receive a WhatsApp notification when a new monthly report is generated.</div>
+                </div>
+                <input type="checkbox" id="pref-whatsapp" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent-cyan);">
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Weekly Performance Emails</div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Receive a weekly summary email containing leads, CPL indicators, and pacing details.</div>
+                </div>
+                <input type="checkbox" id="pref-email" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent-cyan);">
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Pacing & CPL Warnings</div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Instantly notify via SMS/Email if campaign CPL goes above target committed range.</div>
+                </div>
+                <input type="checkbox" id="pref-warnings" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent-cyan);">
+              </div>
+              
+              <button id="save-settings-btn" class="btn btn-primary" style="margin-top: 10px; align-self: flex-start;">Save Preferences</button>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 3. NATIVE MODAL DIALOG (CREATE SUPPORT TICKET) -->
+  <!-- ========================================== -->
+  <dialog id="support-dialog">
+    <div class="modal-header">
+      <h3 class="modal-title">Create Support Ticket</h3>
+      <button class="close-btn" commandfor="support-dialog" command="close">✕</button>
+    </div>
+    <form id="support-form" method="dialog">
+      <div class="form-group">
+        <label for="tkt-subject" class="form-label">Subject / Issue Title</label>
+        <input type="text" id="tkt-subject" class="form-input" placeholder="e.g. Creta Leads form error" required>
+      </div>
+      
+      <div class="form-group">
+        <label for="tkt-priority" class="form-label">Priority</label>
+        <select id="tkt-priority" class="form-select">
+          <option value="Low">Low (Minor changes)</option>
+          <option value="Medium" selected>Medium (Budget, ad changes)</option>
+          <option value="High">High (Ad group paused, leads failing)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="tkt-desc" class="form-label">Description & Details</label>
+        <textarea id="tkt-desc" class="form-textarea" rows="4" placeholder="Explain the changes or issue you are experiencing..." required></textarea>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px;">
+        <button type="button" class="btn" commandfor="support-dialog" command="close">Cancel</button>
+        <button type="submit" class="btn btn-primary">Submit Ticket</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ========================================== -->
+  <!-- 4. FLOATING SIMULATOR WIDGET CONTROLS -->
+  <!-- ========================================== -->
+  <div class="sim-widget">
+    <button id="sim-toggle-btn" class="sim-btn">🧪</button>
+    <div id="sim-panel-container" class="sim-panel">
+      <div class="sim-header">
+        <span>QA Simulator Dashboard</span>
+        <button id="sim-close-btn" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">✕</button>
+      </div>
+      
+      <div class="sim-section">
+        <span class="sim-title">WhatsApp Alerts Simulator</span>
+        <button id="sim-notif-whatsapp-btn" class="btn" style="text-align: left; font-size:12px;">📲 Send WhatsApp report notification</button>
+      </div>
+
+      <div class="sim-section" style="border-top:1px solid var(--border-color); padding-top:8px;">
+        <span class="sim-title">Account Manager Chat Simulator</span>
+        <button id="sim-msg-reply-btn" class="btn" style="text-align: left; font-size:12px;">💬 Simulate Account Manager reply</button>
+      </div>
+
+      <div class="sim-section" style="border-top:1px solid var(--border-color); padding-top:8px;">
+        <span class="sim-title">Support Ticket Progress Simulator</span>
+        <button id="sim-ticket-status-btn" class="btn" style="text-align: left; font-size:12px;">⚙️ Advance Ticket status</button>
+      </div>
+
+      <div class="sim-section" style="border-top:1px solid var(--border-color); padding-top:8px;">
+        <span class="sim-title">Force Campaign CPL Alert</span>
+        <button id="sim-cpl-alert-btn" class="btn" style="text-align: left; font-size:12px; border-color: rgba(220,53,69,0.3); color: var(--color-danger);">⚠️ Trigger High CPL alert</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification system container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Polyfills for older browsers if needed -->
+  <script type="module">
+    // Invoker Commands polyfill check
+    if (!('commandForElement' in HTMLButtonElement.prototype)) {
+      import('https://cdn.jsdelivr.net/npm/invokers-polyfill@latest/dist/index.min.js')
+        .then(() => console.log('Invoker Commands polyfill loaded'))
+        .catch(err => console.error('Error loading fallback:', err));
+    }
+  </script>
+
+  <!-- Script Modules -->
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
