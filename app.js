@@ -1,4 +1,8 @@
+import { inject } from '@vercel/analytics';
 import { DEALERSHIPS, ACCOUNT_MANAGERS } from './data.js';
+
+// Initialize Vercel Web Analytics
+inject();
 
 // State Management
 let appState = {
