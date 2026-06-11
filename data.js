@@ -412,6 +412,32 @@ export const DEALERSHIPS = {
         ]
       }
     }
+  },
+  "malhotra_hyundai": {
+    name: "Malhotra Hyundai",
+    phone: "9555555555",
+    otp: "555555",
+    locations: {
+      "ghaziabad": {
+        id: "ghaziabad",
+        name: "Malhotra Hyundai - Ghaziabad",
+        status: "Pending Ads Connection",
+        startDate: "2026-06-11",
+        committedCPL: 450,
+        totalBudget: 120000,
+        billingCycle: "June 11 - July 11",
+        assignedAM: "Rohan Verma",
+        amEmail: "rohan.verma@cardekho.com",
+        campaignName: "Unconfigured Campaign",
+        objective: "Pending setup and execution by CarDekho NCBD team",
+        subscription: null,
+        dailyData: [],
+        optimisations: [],
+        tickets: [],
+        messages: [],
+        notifications: []
+      }
+    }
   }
 };
 
@@ -421,7 +447,7 @@ export const ACCOUNT_MANAGERS = {
     name: "Rohan Verma",
     phone: "9999999999",
     otp: "111111",
-    assignedDealers: ["rohan_motors"]
+    assignedDealers: ["rohan_motors", "malhotra_hyundai"]
   },
   "priyanka_sen": {
     id: "priyanka_sen",

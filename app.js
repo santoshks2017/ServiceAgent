@@ -26,6 +26,7 @@ let appState = {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initAuthEventListeners();
+  initOnboardingEventListeners();
   checkExistingSession();
   initSimPanel();
 });
@@ -133,6 +134,7 @@ function loginUser(dealer, targetLocationId = null) {
   ])];
 
   initAppDashboard();
+  checkOnboardingState();
   showToast('Logged In Successfully', `Welcome to ${dealer.name}`);
 }
 
@@ -175,10 +177,24 @@ function loginAM(am) {
   // Navigate to default tab
   switchTab('am-showrooms');
   
+  // Show AM notifications
+  appState.notifications = am.notifications || [];
+  updateNotificationsUI();
+  
   // Bind send handlers for AM chat
   document.getElementById('am-chat-send-btn').onclick = sendAMChatMessage;
   document.getElementById('am-chat-input-field').onkeydown = (e) => {
     if (e.key === 'Enter') sendAMChatMessage();
+  };
+
+  // Bind AM clear-notifications handler
+  document.getElementById('clear-notif-btn').onclick = () => {
+    appState.notifications = [];
+    if (appState.currentUser) {
+      appState.currentUser.notifications = [];
+    }
+    updateNotificationsUI();
+    showToast('Notifications Cleared', 'In-app notification logs cleared.');
   };
   
   showToast('Logged In Successfully', `Welcome, ${am.name}`);
@@ -342,6 +358,7 @@ function initAppDashboard() {
     renderChat();
     renderBilling();
     updateNotificationsUI();
+    checkOnboardingState();
     showToast('Location Switched', `Now viewing ${locData.name}`);
   };
 
@@ -466,6 +483,11 @@ function switchTab(tabId) {
   const panes = document.querySelectorAll('.tab-pane');
   const navItems = document.querySelectorAll('.nav-item');
   
+  const onboardingView = document.getElementById('onboarding-view');
+  if (onboardingView) {
+    onboardingView.style.display = 'none';
+  }
+  
   panes.forEach(pane => {
     pane.classList.remove('active');
     pane.style.display = 'none';
@@ -491,6 +513,9 @@ function switchTab(tabId) {
     } else if (tabId === 'am-tickets') {
       renderAMTickets();
     }
+  }
+  if (appState.currentRole === 'dealer') {
+    checkOnboardingState();
   }
 }
 
@@ -1191,6 +1216,11 @@ function renderReports() {
   container.innerHTML = '';
   
   const loc = appState.currentUser.locations[appState.currentLocationId];
+  if (loc.status !== 'Active' || (loc.id === 'ghaziabad' && loc.dailyData.length <= 4)) {
+    container.innerHTML = `<div class="no-logs-msg" style="padding: 24px; grid-column: span 3; text-align: center; width: 100%;">No monthly reports available yet. First performance digest will generate at the end of the billing cycle.</div>`;
+    return;
+  }
+  
   const reports = getCompletedMonths(loc.startDate);
 
   reports.forEach(rep => {
@@ -1407,9 +1437,13 @@ function updateNotificationsUI() {
     item.className = `popover-item ${n.read ? '' : 'unread'}`;
     item.onclick = () => {
       n.read = true;
-      const loc = appState.currentUser.locations[appState.currentLocationId];
-      if (loc) {
-        loc.notifications = appState.notifications;
+      if (appState.currentRole === 'am') {
+        appState.currentUser.notifications = appState.notifications;
+      } else {
+        const loc = appState.currentUser.locations[appState.currentLocationId];
+        if (loc) {
+          loc.notifications = appState.notifications;
+        }
       }
       updateNotificationsUI();
     };
@@ -1638,6 +1672,59 @@ function renderAMOverview() {
   }
 
   let rowsHtml = showrooms.map(showroom => {
+    if (showroom.status !== 'Active') {
+      let statusBadge = '';
+      let actionBtn = '';
+      
+      if (showroom.status === 'Pending Ads Connection') {
+        statusBadge = `<span class="status-pill" style="background: rgba(108, 117, 125, 0.15); color: var(--text-muted); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">Connection Pending</span>`;
+        actionBtn = `<span style="font-size: 11.5px; color: var(--text-muted); font-style: italic;">Waiting for Dealer</span>`;
+      } else if (showroom.status === 'Pending Audit') {
+        statusBadge = `<span class="status-pill status-danger" style="background: rgba(220, 53, 69, 0.15); color: var(--color-danger); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">Audit Required</span>`;
+        actionBtn = `<button class="btn btn-primary" style="padding: 6px 10px; font-size: 11.5px;" onclick="window.showAuditModal('${showroom.dealerKey}', '${showroom.locId}')">🔍 Run Audit</button>`;
+      } else if (showroom.status === 'Pending Retainer') {
+        statusBadge = `<span class="status-pill" style="background: rgba(255, 193, 7, 0.15); color: var(--color-warning); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">Audit Shared</span>`;
+        actionBtn = `<span style="font-size: 11.5px; color: var(--text-muted); font-style: italic;">Waiting for Payment</span>`;
+      } else if (showroom.status === 'Pending Goals') {
+        statusBadge = `<span class="status-pill" style="background: rgba(13, 202, 240, 0.15); color: var(--accent-cyan); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">Goal Intake</span>`;
+        actionBtn = `<span style="font-size: 11.5px; color: var(--text-muted); font-style: italic;">Waiting for Goals</span>`;
+      } else if (showroom.status === 'Pending Activation') {
+        statusBadge = `<span class="status-pill" style="background: rgba(145, 80, 200, 0.15); color: var(--accent-purple); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 4px; text-transform: uppercase;">Activation Ready</span>`;
+        actionBtn = `<button class="btn btn-primary" style="padding: 6px 10px; font-size: 11.5px; background: var(--accent-purple); border-color: var(--accent-purple);" onclick="window.showActivationModal('${showroom.dealerKey}', '${showroom.locId}')">⚡ Activate Campaign</button>`;
+      }
+
+      return `
+        <tr style="border-bottom: 1px solid var(--border-color); vertical-align: middle; background: rgba(255, 255, 255, 0.01);">
+          <td style="padding: 16px 12px;">
+            <div style="font-weight: 700; font-size: 14px; color: var(--text-primary);">${showroom.dealerName}</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${showroom.name}</div>
+          </td>
+          <td style="padding: 16px 12px; max-width: 200px;">
+            <div style="font-weight: 600; font-size: 12.5px; color: var(--text-muted); font-style: italic;">Onboarding In-progress</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.3;">${showroom.objective}</div>
+          </td>
+          <td style="padding: 16px 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="font-size: 13px; font-weight: 700;">-</div>
+              ${statusBadge}
+            </div>
+          </td>
+          <td style="padding: 16px 12px;">
+            <span style="font-size: 12.5px; color: var(--text-muted); font-style: italic;">Pending Setup</span>
+          </td>
+          <td style="padding: 16px 12px; text-align: center;">
+            <span style="font-size: 12.5px; color: var(--text-muted);">-</span>
+          </td>
+          <td style="padding: 16px 12px; text-align: right;">
+            <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+              ${actionBtn}
+              <button class="btn" style="padding: 6px 10px; font-size: 11.5px;" onclick="window.selectShowroomChat('${showroom.dealerKey}', '${showroom.locId}')">💬 Chat</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
     // Calculate CPL & metrics
     const filteredData = showroom.dailyData.filter(d => new Date(d.date) >= new Date("2026-05-01"));
     const spend = filteredData.reduce((sum, d) => sum + d.spend, 0);
@@ -1964,3 +2051,698 @@ window.selectShowroomChat = (dealerKey, locId) => {
   appState.activeChatLocationId = `${dealerKey}_${locId}`;
   switchTab('am-chat');
 };
+
+// ==========================================
+// 14. END-TO-END ONBOARDING AND ACTIVATION LOGIC
+// ==========================================
+function checkOnboardingState() {
+  if (appState.currentRole !== 'dealer' || !appState.currentUser) {
+    const onboardingView = document.getElementById('onboarding-view');
+    if (onboardingView) onboardingView.style.display = 'none';
+    
+    // Remove disabled class from sidebar nav
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+      item.style.pointerEvents = 'auto';
+      item.style.opacity = '1';
+    });
+    return;
+  }
+
+  const locData = appState.currentUser.locations[appState.currentLocationId];
+  if (!locData) return;
+
+  const onboardingView = document.getElementById('onboarding-view');
+  
+  if (locData.status !== 'Active') {
+    // Lock sidebar tabs except Dashboard and AM Chat
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+      const tab = item.getAttribute('data-tab');
+      if (tab !== 'dashboard' && tab !== 'chat') {
+        item.style.pointerEvents = 'none';
+        item.style.opacity = '0.35';
+      } else {
+        item.style.pointerEvents = 'auto';
+        item.style.opacity = '1';
+      }
+    });
+
+    // Hide standard tab panels
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+      pane.style.display = 'none';
+      pane.classList.remove('active');
+    });
+
+    // Show onboarding card
+    if (onboardingView) {
+      onboardingView.style.display = 'flex';
+      renderOnboardingWizard(locData);
+    }
+  } else {
+    // Unlock everything
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+      item.style.pointerEvents = 'auto';
+      item.style.opacity = '1';
+    });
+    if (onboardingView) onboardingView.style.display = 'none';
+  }
+}
+
+function renderOnboardingWizard(loc) {
+  const container = document.getElementById('onboarding-view');
+  if (!container) return;
+
+  let stepsHeaderHtml = `
+    <div class="onboarding-steps" style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 10px; flex-wrap: wrap; gap: 12px; width: 100%;">
+      <div class="step-pill ${loc.status === 'Pending Ads Connection' ? 'active' : 'completed'}" style="display: flex; align-items: center; gap: 8px; font-size: 12.5px;">
+        <span class="step-num" style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; background: ${loc.status === 'Pending Ads Connection' ? 'var(--accent-cyan)' : 'var(--color-success)'}; color: white;">1</span>
+        <span style="font-weight: 600;">Connect Google Ads</span>
+      </div>
+      <div class="step-pill ${loc.status === 'Pending Audit' ? 'active' : (loc.status === 'Pending Ads Connection' ? '' : 'completed')}" style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; opacity: ${loc.status === 'Pending Ads Connection' ? '0.5' : '1'};">
+        <span class="step-num" style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; background: ${loc.status === 'Pending Audit' ? 'var(--accent-cyan)' : (['Pending Ads Connection', 'Pending Audit'].includes(loc.status) ? 'var(--bg-hover)' : 'var(--color-success)')}; color: ${loc.status === 'Pending Ads Connection' ? 'var(--text-muted)' : 'white'};">2</span>
+        <span style="font-weight: 600;">Specialist Audit</span>
+      </div>
+      <div class="step-pill ${['Pending Retainer', 'Pending Goals', 'Pending Activation'].includes(loc.status) ? 'active' : ''}" style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; opacity: ${['Pending Ads Connection', 'Pending Audit'].includes(loc.status) ? '0.5' : '1'};">
+        <span class="step-num" style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; background: ${['Pending Retainer', 'Pending Goals', 'Pending Activation'].includes(loc.status) ? 'var(--accent-cyan)' : 'var(--bg-hover)'}; color: ${['Pending Ads Connection', 'Pending Audit'].includes(loc.status) ? 'var(--text-muted)' : 'white'};">3</span>
+        <span style="font-weight: 600;">Retainer & Goals</span>
+      </div>
+      <div class="step-pill" style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; opacity: 0.5;">
+        <span class="step-num" style="width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; background: var(--bg-hover); color: var(--text-muted);">4</span>
+        <span style="font-weight: 600;">Campaign Live</span>
+      </div>
+    </div>
+  `;
+
+  let contentHtml = '';
+
+  if (loc.status === 'Pending Ads Connection') {
+    contentHtml = `
+      <div style="text-align: center; padding: 20px 0; display: flex; flex-direction: column; gap: 16px; align-items: center; width: 100%;">
+        <div style="font-size: 48px; margin-bottom: 8px;">🔗</div>
+        <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800;">Link Your Google Ads Account</h2>
+        <p style="color: var(--text-secondary); max-width: 500px; font-size: 14px; line-height: 1.5;">
+          Welcome to the CarDekho NCBD portal! To begin optimizing your dealership lead campaigns, we first need read-only access to your historical Google Ads data. This allows us to run a campaign audit and identify budget waste.
+        </p>
+        <button id="connect-ads-btn" class="btn btn-primary" style="padding: 12px 24px; font-size: 14px; font-weight: 600; margin-top: 10px;">🔗 Connect Google Ads Account</button>
+        <div class="mock-info-box" style="margin-top: 20px; font-size: 12px; text-align: left; max-width: 500px; border-color: rgba(66, 133, 244, 0.3); background: rgba(66, 133, 244, 0.03); color: var(--text-secondary);">
+          ℹ️ <strong>Demo Simulation:</strong> Clicking this button will open a mock Google OAuth popup to grant permissions for Malhotra Hyundai.
+        </div>
+      </div>
+    `;
+  } else if (loc.status === 'Pending Audit') {
+    contentHtml = `
+      <div style="text-align: center; padding: 20px 0; display: flex; flex-direction: column; gap: 16px; align-items: center; width: 100%;">
+        <div style="font-size: 48px; margin-bottom: 8px; animation: pulse 2s infinite;">🔍</div>
+        <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800;">Campaign Audit in Progress</h2>
+        <p style="color: var(--text-secondary); max-width: 550px; font-size: 14px; line-height: 1.5;">
+          Google Ads account linked successfully! Connected account: <strong>malhotramotors.ghz@gmail.com (ID: 482-990-1288)</strong>.
+        </p>
+        <p style="color: var(--text-muted); max-width: 550px; font-size: 13.5px; line-height: 1.5;">
+          Our Campaign Specialist <strong>Rohan Verma</strong> and the NCBD AI Audit tool are auditing your campaign structure, ad groups, negative keywords, and budget pacing. We will generate your report shortly.
+        </p>
+        <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); padding: 14px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-secondary); font-weight: 600; max-width: 500px; width: 100%; justify-content: center;">
+          <span class="spinner" style="width: 16px; height: 16px; border: 2px solid var(--accent-cyan); border-top-color: transparent; border-radius: 50%; display: inline-block; animation: spin 1s linear infinite;"></span>
+          Waiting for account manager to release the audit report...
+        </div>
+        <div class="mock-info-box" style="margin-top: 10px; font-size: 12px; text-align: left; max-width: 550px;">
+          💡 <strong>Demo Guidance:</strong> Log out and log in as the Account Manager Rohan Verma (<code>9999999999</code>) to run the AI audit and push the report to the dealer portal.
+        </div>
+      </div>
+    `;
+  } else if (loc.status === 'Pending Retainer') {
+    contentHtml = `
+      <div style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+        <div style="text-align: center; margin-bottom: 10px;">
+          <span style="font-size: 36px;">📈</span>
+          <h2 style="font-family: var(--font-display); font-size: 22px; font-weight: 800; margin-top: 8px;">Your Google Ads Audit is Ready!</h2>
+          <p style="color: var(--text-secondary); font-size: 13px; margin-top: 4px;">Audited on ${new Date().toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})} by Rohan Verma (AM)</p>
+        </div>
+
+        <!-- Audit Findings Card -->
+        <div class="glass-card" style="padding: 20px; background: rgba(220, 53, 69, 0.03); border-color: rgba(220, 53, 69, 0.25);">
+          <h3 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--color-danger); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <span>⚠️</span> Critical Account Inefficiencies Discovered
+          </h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 16px;">
+            <div style="background: var(--bg-sidebar); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <span style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">ESTIMATED SPEND WASTAGE</span>
+              <div style="font-size: 22px; font-weight: 800; color: var(--color-warning); margin-top: 4px;">34.2%</div>
+              <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px;">≈ ₹40,800 monthly loss</span>
+            </div>
+            <div style="background: var(--bg-sidebar); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+              <span style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">CURRENT COST PER LEAD</span>
+              <div style="font-size: 22px; font-weight: 800; color: var(--color-danger); margin-top: 4px;">₹680</div>
+              <span style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px;">NCBD Benchmark: ₹450</span>
+            </div>
+          </div>
+
+          <div style="font-size: 12.5px; line-height: 1.45; display: flex; flex-direction: column; gap: 10px; color: var(--text-secondary);">
+            <div style="padding: 10px; background: var(--bg-sidebar); border-radius: 6px; border-left: 3px solid var(--color-danger);">
+              <strong>Broad Match Keyword Bleed:</strong> Ad budget is bleeding on search queries with no purchase intent, such as <i>"used cars Ghaziabad"</i> and <i>"Hyundai job openings"</i>.
+            </div>
+            <div style="padding: 10px; background: var(--bg-sidebar); border-radius: 6px; border-left: 3px solid var(--color-warning);">
+              <strong>Bidding Strategy Inefficiency:</strong> Bidding manually without conversion data capping causes CPC to spike to ₹48 on competitive keywords.
+            </div>
+          </div>
+        </div>
+
+        <!-- Agency Packages Retainer selection -->
+        <div>
+          <h3 style="font-family: var(--font-display); font-size: 16px; font-weight: 700; margin-bottom: 12px; text-align: center;">Select an Agency Retainer Package to Activate Optimization</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 12px;">
+            
+            <div class="glass-card package-box" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s;">
+              <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Standard Plan</span>
+              <h4 style="font-size: 18px; font-weight: 700;">₹20,000<span style="font-size: 11px; font-weight:400; color:var(--text-muted);">/mo</span></h4>
+              <ul style="font-size: 11.5px; padding-left: 14px; color: var(--text-secondary); line-height: 1.4; flex-grow: 1; display:flex; flex-direction:column; gap:4px;">
+                <li>• Weekly bid tuning</li>
+                <li>• Basic negative audit</li>
+                <li>• SLA: 48-hour tickets</li>
+              </ul>
+              <button class="btn" style="padding: 8px; width: 100%; font-size:12px; margin-top: 8px;" onclick="window.selectRetainerPlan('Standard Plan', 20000)">Select Standard</button>
+            </div>
+
+            <div class="glass-card package-box" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; border-color: var(--accent-cyan); background: rgba(13, 202, 240, 0.03); position: relative; transition: all 0.2s;">
+              <span style="position: absolute; top:-10px; right: 10px; background: var(--accent-cyan); color: white; padding: 2px 8px; border-radius: 99px; font-size: 9px; font-weight: 700; text-transform: uppercase;">Recommended</span>
+              <span style="font-size: 11px; font-weight: 700; color: var(--accent-cyan); text-transform: uppercase;">Premium Plan</span>
+              <h4 style="font-size: 18px; font-weight: 700;">₹25,000<span style="font-size: 11px; font-weight:400; color:var(--text-muted);">/mo</span></h4>
+              <ul style="font-size: 11.5px; padding-left: 14px; color: var(--text-secondary); line-height: 1.4; flex-grow: 1; display:flex; flex-direction:column; gap:4px;">
+                <li>• Daily automated bidding</li>
+                <li>• WhatsApp monthly digests</li>
+                <li>• SLA: 24-hour response</li>
+              </ul>
+              <button class="btn btn-primary" style="padding: 8px; width: 100%; font-size:12px; margin-top: 8px;" onclick="window.selectRetainerPlan('Premium Plan', 25000)">Select Premium</button>
+            </div>
+
+            <div class="glass-card package-box" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s;">
+              <span style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Enterprise Plan</span>
+              <h4 style="font-size: 18px; font-weight: 700;">₹35,000<span style="font-size: 11px; font-weight:400; color:var(--text-muted);">/mo</span></h4>
+              <ul style="font-size: 11.5px; padding-left: 14px; color: var(--text-secondary); line-height: 1.4; flex-grow: 1; display:flex; flex-direction:column; gap:4px;">
+                <li>• Dedicated Lead manager</li>
+                <li>• Realtime API CRM sync</li>
+                <li>• SLA: 4-hour response</li>
+              </ul>
+              <button class="btn" style="padding: 8px; width: 100%; font-size:12px; margin-top: 8px;" onclick="window.selectRetainerPlan('Enterprise Plan', 35000)">Select Enterprise</button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+  } else if (loc.status === 'Pending Goals') {
+    contentHtml = `
+      <div style="width: 100%; display: flex; flex-direction: column; gap: 20px;">
+        <div style="text-align: center;">
+          <span style="font-size: 36px;">🎯</span>
+          <h2 style="font-family: var(--font-display); font-size: 22px; font-weight: 800; margin-top: 8px;">Define Your Campaign Goals</h2>
+          <p style="color: var(--text-secondary); font-size: 13.5px; max-width: 500px; margin: 4px auto 0;">
+            Retainer payment received! Let's define the campaign constraints so your Account Manager can set up the Google Ads campaigns.
+          </p>
+        </div>
+
+        <form id="goals-intake-form" class="glass-card" style="display: flex; flex-direction: column; gap: 16px; padding: 24px; background: var(--bg-card); width: 100%;">
+          <div class="form-group">
+            <label class="form-label" style="font-weight:600;">Primary Campaign Objective</label>
+            <select id="goal-objective" class="form-select" style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 6px; width: 100%; outline: none; font-size: 13px;">
+              <option value="Lead Generation">Capture Premium Leads (Test drive & bookings)</option>
+              <option value="Brand Recall">Dealer local radius branding (Max views)</option>
+              <option value="Showroom Visits">Drive walk-ins to dealership (Store visits objective)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight:600;">Target Car Models (Select all that apply)</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 13px;">
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" name="models" value="Creta Facelift" checked> Creta Facelift</label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" name="models" value="Venue" checked> Venue</label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" name="models" value="Verna"> Verna</label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" name="models" value="Tucson"> Tucson</label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" name="models" value="Alcazar"> Alcazar</label>
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" name="models" value="Ioniq 5"> Ioniq 5 (EV)</label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-weight:600;">Target Regional Radius (km around Showroom)</label>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <input type="range" id="goal-radius" min="5" max="50" value="15" style="flex-grow: 1; accent-color: var(--accent-cyan);" oninput="document.getElementById('radius-val').textContent = this.value + ' km'">
+              <span id="radius-val" style="font-weight: 700; font-size: 13px; min-width: 50px;">15 km</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-weight:600;">Desired Monthly Media Ad Budget (₹)</label>
+            <input type="number" id="goal-budget" class="form-input" value="150000" step="10000" min="50000" style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 6px; width: 100%; outline: none;" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-weight:600;">Special Instructions / Requirements</label>
+            <textarea id="goal-instructions" class="form-textarea" rows="3" placeholder="e.g. Focus search keywords specifically around Creta Facelift automatic variants..." style="background: var(--bg-sidebar); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; border-radius: 6px; width: 100%; outline: none; resize: none; font-family: var(--font-sans);"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary" style="padding: 12px; width: 100%; font-size: 13.5px; font-weight: 600; margin-top: 10px;">Submit Campaign Goals</button>
+        </form>
+      </div>
+    `;
+  } else if (loc.status === 'Pending Activation') {
+    contentHtml = `
+      <div style="text-align: center; padding: 20px 0; display: flex; flex-direction: column; gap: 16px; align-items: center; width: 100%;">
+        <div style="font-size: 48px; margin-bottom: 8px; animation: pulse 2s infinite;">🚀</div>
+        <h2 style="font-family: var(--font-display); font-size: 24px; font-weight: 800;">Campaign Deployment Pending</h2>
+        <p style="color: var(--text-secondary); max-width: 550px; font-size: 14px; line-height: 1.5;">
+          Retainer Paid and Campaign Goals Submitted successfully!
+        </p>
+        <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); padding: 16px 20px; border-radius: 8px; font-size: 13px; text-align: left; max-width: 500px; width: 100%; line-height: 1.6;">
+          <strong style="color: var(--text-primary); display: block; margin-bottom: 4px;">Goals Received:</strong>
+          • <strong>Objective:</strong> ${loc.goalObjective || 'Lead Generation'}<br>
+          • <strong>Models:</strong> ${(loc.goalModels || []).join(', ')}<br>
+          • <strong>Radius:</strong> ${loc.goalRadius || 15} km<br>
+          • <strong>Media Budget:</strong> ₹${(loc.goalBudget || 150000).toLocaleString()}/month
+        </div>
+        <p style="color: var(--text-muted); max-width: 550px; font-size: 13.5px; line-height: 1.5; margin-top: 4px;">
+          Your Account Manager <strong>Rohan Verma</strong> is configuring the responsive ad copy assets, extensions, and bidding overrides. You will receive an SMS and email notification the moment the campaign is live.
+        </p>
+        <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); padding: 12px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-secondary); font-weight: 600; max-width: 500px; width: 100%; justify-content: center;">
+          <span class="spinner" style="width: 16px; height: 16px; border: 2px solid var(--accent-cyan); border-top-color: transparent; border-radius: 50%; display: inline-block; animation: spin 1s linear infinite;"></span>
+          Deploying Google Ads Campaign structures...
+        </div>
+        <div class="mock-info-box" style="margin-top: 10px; font-size: 12px; text-align: left; max-width: 550px;">
+          💡 <strong>Demo Guidance:</strong> Log out and log in as Rohan Verma (<code>9999999999</code>) to review the goals and click "Launch Campaign" to unlock the dashboard.
+        </div>
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    ${stepsHeaderHtml}
+    <div class="onboarding-wizard-body" style="padding: 10px 0; width: 100%;">
+      ${contentHtml}
+    </div>
+  `;
+
+  // Bind Event listeners for wizard page buttons
+  if (loc.status === 'Pending Ads Connection') {
+    const connectBtn = document.getElementById('connect-ads-btn');
+    if (connectBtn) {
+      connectBtn.onclick = () => {
+        const oauthDialog = document.getElementById('oauth-dialog');
+        oauthDialog.showModal();
+      };
+    }
+  } else if (loc.status === 'Pending Goals') {
+    const form = document.getElementById('goals-intake-form');
+    if (form) {
+      form.onsubmit = (e) => {
+        e.preventDefault();
+        
+        const objective = document.getElementById('goal-objective').value;
+        const radius = document.getElementById('goal-radius').value;
+        const budget = parseInt(document.getElementById('goal-budget').value);
+        const instructions = document.getElementById('goal-instructions').value;
+        
+        const checkedModels = [];
+        document.querySelectorAll('input[name="models"]:checked').forEach(cb => {
+          checkedModels.push(cb.value);
+        });
+
+        // Update state
+        loc.status = 'Pending Activation';
+        loc.goalObjective = objective;
+        loc.goalModels = checkedModels;
+        loc.goalRadius = radius;
+        loc.goalBudget = budget;
+        loc.goalInstructions = instructions;
+        loc.campaignName = `NCBD_Hyundai_Ghaziabad_${objective.replace(/\s+/g, '_')}`;
+
+        // Send alert to AM Rohan Verma
+        const rohanVerma = ACCOUNT_MANAGERS['rohan_verma'];
+        if (rohanVerma) {
+          if (!rohanVerma.notifications) rohanVerma.notifications = [];
+          rohanVerma.notifications.unshift({
+            id: Date.now() + 1,
+            title: "Goals Submitted",
+            text: `Malhotra Hyundai Ghaziabad submitted goals. Retainer Plan Active. Ready for Campaign activation.`,
+            date: new Date().toISOString().split('T')[0],
+            read: false
+          });
+        }
+
+        // Add a notification in Malhotra's list
+        loc.notifications.unshift({
+          id: Date.now() + 2,
+          title: "Goals Submitted Successfully",
+          text: "Intake form received. Campaign Setup is now in queue for account manager review.",
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+
+        appState.notifications = [...loc.notifications];
+
+        // Refresh UI
+        checkOnboardingState();
+        updateNotificationsUI();
+        showToast('Goals Submitted', 'Your campaign parameters have been sent to Rohan Verma.');
+      };
+    }
+  }
+}
+
+function initOnboardingEventListeners() {
+  // OAuth Allow/Deny buttons
+  const oauthDialog = document.getElementById('oauth-dialog');
+  const oauthAllowBtn = document.getElementById('oauth-allow-btn');
+  const oauthDenyBtn = document.getElementById('oauth-deny-btn');
+  
+  if (oauthAllowBtn) {
+    oauthAllowBtn.onclick = () => {
+      oauthDialog.close();
+      const loc = appState.currentUser ? appState.currentUser.locations[appState.currentLocationId] : null;
+      if (loc) {
+        loc.status = 'Pending Audit';
+        loc.notifications.unshift({
+          id: Date.now(),
+          title: "Google Ads Account Connected",
+          text: "Linked account: malhotramotors.ghz@gmail.com (ID: 482-990-1288). Read-only access granted.",
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+        appState.notifications = [...loc.notifications];
+
+        // Push alert to AM Rohan Verma
+        const rohan = ACCOUNT_MANAGERS['rohan_verma'];
+        if (rohan) {
+          if (!rohan.notifications) rohan.notifications = [];
+          rohan.notifications.unshift({
+            id: Date.now() + 1,
+            title: "New Dealer Linked Google Ads",
+            text: "Malhotra Hyundai (Ghaziabad) connected Ads. Run campaign audit now.",
+            date: new Date().toISOString().split('T')[0],
+            read: false
+          });
+        }
+        
+        checkOnboardingState();
+        updateNotificationsUI();
+        showToast('OAuth Access Granted', 'Google Ads account linked successfully. Audit initiated.', 'success');
+      }
+    };
+  }
+
+  if (oauthDenyBtn) {
+    oauthDenyBtn.onclick = () => {
+      oauthDialog.close();
+      showToast('OAuth Cancelled', 'Google Ads account link rejected by user.', 'warning');
+    };
+  }
+
+  // Payment Form submit
+  const paymentForm = document.getElementById('payment-form');
+  const paymentDialog = document.getElementById('payment-dialog');
+  
+  if (paymentForm) {
+    paymentForm.onsubmit = (e) => {
+      e.preventDefault();
+      
+      const loc = appState.currentUser ? appState.currentUser.locations[appState.currentLocationId] : null;
+      if (loc && appState.selectedPlan) {
+        const planName = appState.selectedPlan.name;
+        const fee = appState.selectedPlan.fee;
+        
+        // Setup subscription
+        loc.subscription = {
+          status: "Active",
+          planName: planName,
+          fee: fee,
+          billingCycle: "Monthly",
+          nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          paymentMethod: "Visa ending in 9988",
+          invoices: [
+            { id: `INV-2026-${Math.floor(100 + Math.random() * 900)}`, date: new Date().toISOString().split('T')[0], amount: fee, status: "Paid" }
+          ]
+        };
+
+        loc.status = 'Pending Goals';
+        loc.notifications.unshift({
+          id: Date.now(),
+          title: `${planName} Activated`,
+          text: `Retainer payment of ₹${fee.toLocaleString()} processed successfully. Setup goals to start!`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+        
+        appState.notifications = [...loc.notifications];
+
+        paymentForm.reset();
+        paymentDialog.close();
+        
+        checkOnboardingState();
+        updateNotificationsUI();
+        renderBilling();
+        showToast('Payment Successful', `${planName} activated. Please set your campaign goals.`);
+      }
+    };
+  }
+
+  // AM AI Audit Share button click handler
+  const pushReportBtn = document.getElementById('push-audit-report-btn');
+  if (pushReportBtn) {
+    pushReportBtn.onclick = () => {
+      const target = appState.auditTarget;
+      if (!target) return;
+      
+      const dealer = DEALERSHIPS[target.dealerKey];
+      const loc = dealer ? dealer.locations[target.locId] : null;
+      
+      if (loc) {
+        loc.status = 'Pending Retainer';
+        
+        // Add notifications
+        loc.notifications.unshift({
+          id: Date.now(),
+          title: "AI Campaign Audit Report Ready",
+          text: "Rohan Verma shared your Google Ads audit report. Open Dashboard to view wasted spend and select plan.",
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+        
+        document.getElementById('audit-dialog').close();
+        renderAMOverview();
+        showToast('Audit Report Shared', `Audit results shared with Malhotra Hyundai. Status moved to Pending Retainer.`);
+      }
+    };
+  }
+
+  // AM Campaign Activation submit handler
+  const activateForm = document.getElementById('activate-campaign-form');
+  const activateDialog = document.getElementById('activate-campaign-dialog');
+  if (activateForm) {
+    activateForm.onsubmit = (e) => {
+      e.preventDefault();
+      
+      const target = appState.activationTarget;
+      if (!target) return;
+
+      const dealer = DEALERSHIPS[target.dealerKey];
+      const loc = dealer ? dealer.locations[target.locId] : null;
+
+      if (loc) {
+        const finalName = document.getElementById('final-campaign-name').value.trim();
+        const finalCPL = parseInt(document.getElementById('final-committed-cpl').value);
+
+        // Transition location status to Active
+        loc.status = 'Active';
+        loc.campaignName = finalName;
+        loc.committedCPL = finalCPL;
+        loc.startDate = new Date().toISOString().split('T')[0];
+        loc.totalBudget = loc.goalBudget || 150000;
+
+        // Generate 3 days of historical running data
+        loc.dailyData = generateNewDailyData(
+          new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          finalCPL,
+          Math.round(loc.totalBudget / 30),
+          4
+        );
+
+        // Setup optimization log
+        loc.optimisations = [
+          {
+            date: new Date().toISOString().split('T')[0],
+            title: "NCBD Auto-Optimisation Campaign Launch",
+            action: `Initialized smart campaign in Google Ads. Activated Target CPA bidding at ₹${finalCPL}. Applied local geographic exclusions (within 15km) and SUVs in-market bidding priority.`,
+            why: `To launch Malhotra Hyundai Ghaziabad campaigns aligned with their submitted goals to promote Creta and Venue models within budget limits.`,
+            result: `Campaign launched successfully. Auto-optimization bids active. Initial impressions recorded.`
+          }
+        ];
+
+        // Setup messages
+        loc.messages = [
+          {
+            sender: "am",
+            text: `Hi Malhotra Hyundai Team! Priyanka/Rohan here. Your Ghaziabad dealership campaigns are now officially LIVE on Google Ads! I've set up Target CPA at ₹${finalCPL} to keep lead costs under control.`,
+            time: new Date().toISOString()
+          }
+        ];
+
+        // Setup notifications
+        loc.notifications.unshift({
+          id: Date.now(),
+          title: "Campaign is LIVE!",
+          text: `Your Ghaziabad campaigns are live. Target CPL capped at ₹${finalCPL}. All dashboard tools unlocked.`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+
+        // Push alert to AM Rohan Verma notifications
+        if (appState.currentUser && appState.currentRole === 'am') {
+          if (!appState.currentUser.notifications) appState.currentUser.notifications = [];
+          appState.currentUser.notifications.unshift({
+            id: Date.now() + 1,
+            title: "Campaign Activated",
+            text: `Campaign for Malhotra Hyundai Ghaziabad is now LIVE. Status set to Active.`,
+            date: new Date().toISOString().split('T')[0],
+            read: false
+          });
+          appState.notifications = [...appState.currentUser.notifications];
+          updateNotificationsUI();
+        }
+
+        activateForm.reset();
+        activateDialog.close();
+        
+        renderAMOverview();
+        showToast('Campaign Launched', 'NCBD optimization activated. Status set to Active.', 'success');
+      }
+    };
+  }
+}
+
+window.selectRetainerPlan = (planName, fee) => {
+  appState.selectedPlan = { name: planName, fee: fee };
+  
+  // Update payment modal titles
+  document.getElementById('payment-plan-title').textContent = planName;
+  document.getElementById('payment-plan-fee').textContent = `₹${fee.toLocaleString()}`;
+  document.getElementById('payment-invoice-id').textContent = `INV-2026-${Math.floor(100 + Math.random() * 900)}`;
+  document.getElementById('submit-payment-btn').textContent = `Pay Retainer (₹${fee.toLocaleString()})`;
+  
+  // Show Payment Dialog
+  const paymentDialog = document.getElementById('payment-dialog');
+  paymentDialog.showModal();
+};
+
+window.showAuditModal = (dealerKey, locId) => {
+  appState.auditTarget = { dealerKey, locId };
+  
+  const dialog = document.getElementById('audit-dialog');
+  const progressSection = document.getElementById('audit-progress-section');
+  const reportPreview = document.getElementById('audit-report-preview');
+  const logsBox = document.getElementById('audit-logs-box');
+  const progressFill = document.getElementById('audit-progress-fill');
+  const progressPercent = document.getElementById('audit-progress-percent');
+  const statusLabel = document.getElementById('audit-status-label');
+
+  dialog.showModal();
+  progressSection.style.display = 'flex';
+  reportPreview.style.display = 'none';
+  logsBox.innerHTML = '';
+  progressFill.style.width = '0%';
+  progressPercent.textContent = '0%';
+  statusLabel.textContent = 'Connecting to Google Ads API...';
+
+  // Sequence of console logs
+  const logs = [
+    { time: 300, msg: "Connecting to account Malhotra Hyundai (Client ID: 482-990-1288)..." },
+    { time: 800, msg: "✓ Connection established. Downloading search query history (past 90 days)..." },
+    { time: 1400, msg: "Analyzing 14,288 keyword matches against CarDekho negative keyword database..." },
+    { time: 2000, msg: "⚠️ Alert: Found 34.2% budget wastage in ad group 'Hyundai Creta Ghaziabad Search'." },
+    { time: 2500, msg: "Analyzing ad copies. Identified missing structured snippet assets and location mappings." },
+    { time: 3100, msg: "Assessing bidding strategy. Target CPA is not configured. CPC averaging ₹48." },
+    { time: 3600, msg: "✓ Audit compilation complete. Generating AI optimization recommendations..." }
+  ];
+
+  logs.forEach(log => {
+    setTimeout(() => {
+      const line = document.createElement('div');
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${log.msg}`;
+      logsBox.appendChild(line);
+      logsBox.scrollTop = logsBox.scrollHeight;
+    }, log.time);
+  });
+
+  // Animate progress bar
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct += 2;
+    progressFill.style.width = `${pct}%`;
+    progressPercent.textContent = `${pct}%`;
+    
+    if (pct === 30) statusLabel.textContent = "Downloading Search Term reports...";
+    if (pct === 60) statusLabel.textContent = "Scanning ad extension settings...";
+    if (pct === 90) statusLabel.textContent = "Formulating optimization plan...";
+    
+    if (pct >= 100) {
+      clearInterval(interval);
+      statusLabel.textContent = "Audit Completed Successfully.";
+      
+      // Delay slightly then show findings
+      setTimeout(() => {
+        progressSection.style.display = 'none';
+        reportPreview.style.display = 'flex';
+      }, 500);
+    }
+  }, 40);
+};
+
+window.showActivationModal = (dealerKey, locId) => {
+  appState.activationTarget = { dealerKey, locId };
+  
+  const dealer = DEALERSHIPS[dealerKey];
+  const loc = dealer ? dealer.locations[locId] : null;
+  if (!loc) return;
+
+  const dialog = document.getElementById('activate-campaign-dialog');
+  const summaryBox = document.getElementById('activate-goals-summary');
+  
+  summaryBox.innerHTML = `
+    <div><strong>🏢 Dealership:</strong> ${dealer.name} - ${loc.name}</div>
+    <div><strong>🎯 Primary Objective:</strong> ${loc.goalObjective || 'Lead Generation'}</div>
+    <div><strong>🚗 Models Target:</strong> ${(loc.goalModels || []).join(', ') || 'Creta Facelift, Venue'}</div>
+    <div><strong>📍 Regional Radius:</strong> ${loc.goalRadius || 15} km from showroom</div>
+    <div><strong>💰 Media Budget:</strong> ₹${(loc.goalBudget || 150000).toLocaleString()}/month</div>
+    <div><strong>📝 Dealer Notes:</strong> <span style="font-style: italic; color: var(--text-secondary);">${loc.goalInstructions || 'None provided'}</span></div>
+  `;
+
+  document.getElementById('final-campaign-name').value = `NCBD_${dealer.name.replace(/\s+/g, '')}_${loc.goalObjective?.replace(/\s+/g, '') || 'Search'}`;
+  document.getElementById('final-committed-cpl').value = loc.committedCPL || 450;
+
+  dialog.showModal();
+};
+
+function generateNewDailyData(startDateStr, committedCPL, targetDailyBudget, totalDays = 4) {
+  const dailyData = [];
+  const start = new Date(startDateStr);
+
+  for (let i = 0; i < totalDays; i++) {
+    const currentDate = new Date(start);
+    currentDate.setDate(start.getDate() + i);
+    const dateStr = currentDate.toISOString().split('T')[0];
+
+    const spend = Math.round(targetDailyBudget * (0.9 + Math.random() * 0.2));
+    const clicks = Math.round(spend / (28 + Math.random() * 5));
+    const leads = Math.max(1, Math.round(spend / (committedCPL * (0.85 + Math.random() * 0.25))));
+    const impressions = Math.round(clicks * (15 + Math.random() * 5));
+
+    dailyData.push({
+      date: dateStr,
+      impressions,
+      clicks,
+      spend,
+      leads,
+      channels: {
+        search: { impressions: Math.round(impressions * 0.75), clicks: Math.round(clicks * 0.75), spend: Math.round(spend * 0.75), leads: Math.round(leads * 0.75) },
+        display: { impressions: Math.round(impressions * 0.25), clicks: Math.round(clicks * 0.25), spend: Math.round(spend * 0.25), leads: Math.round(leads * 0.25) }
+      }
+    });
+  }
+  return dailyData;
+}

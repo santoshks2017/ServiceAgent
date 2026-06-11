@@ -36,10 +36,11 @@
         
         <div class="mock-info-box">
           <strong>Demo Login Details:</strong><br>
-          • Rohan Motors (Dealer): <code>9876543210</code> (OTP: 123456)<br>
-          • Sethi Mahindra Motors (Dealer): <code>9123456789</code> (OTP: 654321)<br>
-          • Rohan Verma (Account Manager): <code>9999999999</code> (OTP: 111111)<br>
-          • Priyanka Sen (Account Manager): <code>8888888888</code> (OTP: 222222)
+          • Rohan Motors (Dealer - Active): <code>9876543210</code> (OTP: 123456)<br>
+          • Sethi Mahindra Motors (Dealer - Active): <code>9123456789</code> (OTP: 654321)<br>
+          • Malhotra Hyundai (Dealer - Onboarding): <code>9555555555</code> (OTP: 555555)<br>
+          • Rohan Verma (AM): <code>9999999999</code> (OTP: 111111)<br>
+          • Priyanka Sen (AM): <code>8888888888</code> (OTP: 222222)
         </div>
       </div>
 
@@ -178,6 +179,13 @@
 
       <!-- Scrollable Tab Container -->
       <div class="page-container">
+
+        <!-- ========================================== -->
+        <!-- ONBOARDING & AUDIT WIZARD -->
+        <!-- ========================================== -->
+        <section id="onboarding-view" class="glass-card" style="display: none; flex-direction: column; gap: 24px; max-width: 800px; margin: 0 auto; width: 100%;">
+          <!-- Populated dynamically via app.js -->
+        </section>
         
         <!-- ========================================== -->
         <!-- TAB 1: PERFORMANCE DASHBOARD -->
@@ -559,6 +567,188 @@
         <button type="submit" class="btn btn-primary">Submit Ticket</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- Google Ads OAuth Connect Dialog -->
+  <dialog id="oauth-dialog" style="padding: 0; width: 90%; max-width: 450px; border-radius: var(--border-radius-md); border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); backdrop-filter: blur(20px);">
+    <div style="background: #ffffff; color: #202124; padding: 32px 28px; font-family: 'Inter', -apple-system, sans-serif; border-radius: inherit;">
+      <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+        <!-- Clean Google Logo representation -->
+        <svg viewBox="0 0 24 24" width="72" height="24" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#EA4335" d="M3.07 12c0-2.45.83-4.7 2.2-6.5L2.1 2.4A11.9 11.9 0 0 0 0 12c0 3.7.83 7.15 2.2 10.1l3.18-3.1A7.9 7.9 0 0 1 3.07 12z"/>
+          <path fill="#4285F4" d="M12 4.75c1.77 0 3.35.6 4.6 1.8l3.43-3.43A11.9 11.9 0 0 0 12 0c-4.5 0-8.5 2.5-10.6 6.2l3.18 3.1A7.9 7.9 0 0 1 12 4.75z"/>
+          <path fill="#34A853" d="M12 19.25a7.9 7.9 0 0 1-7.42-4.55L1.4 17.8A11.9 11.9 0 0 0 12 24c4.14 0 7.9-1.54 10.6-4.13l-3.3-3.18a7.9 7.9 0 0 1-7.3 2.56z"/>
+          <path fill="#F9BC05" d="M22.6 19.87A11.9 11.9 0 0 0 24 12c0-3.35-.95-6.53-2.6-9.25l-3.3 3.18A7.9 7.9 0 0 1 20.93 12c0 1.93-.55 3.76-1.53 5.3l3.2 2.57z"/>
+        </svg>
+      </div>
+      <h3 style="font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 6px; color: #202124;">Sign in with Google</h3>
+      <p style="font-size: 13.5px; color: #5f6368; text-align: center; margin-bottom: 24px; line-height: 1.4;">to authorize the <strong>CarDekho Campaign Portal</strong></p>
+      
+      <div id="oauth-account-select" style="border: 1px solid #dadce0; border-radius: 8px; padding: 14px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: all 0.2s; margin-bottom: 24px; background: #f8f9fa;">
+        <div style="width: 36px; height: 36px; border-radius: 50%; background: #4285f4; color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;">MH</div>
+        <div style="flex-grow:1;">
+          <div style="font-weight: 600; font-size: 13.5px; color: #202124;">Malhotra Hyundai</div>
+          <div style="font-size: 11.5px; color: #5f6368;">malhotramotors.ghz@gmail.com</div>
+        </div>
+        <span style="font-size: 11px; color: #1a73e8; font-weight: 600;">Switch</span>
+      </div>
+
+      <div style="border-top: 1px solid #dadce0; padding-top: 20px; margin-bottom: 28px;">
+        <p style="font-size: 13px; color: #202124; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+          <span>📋</span> CarDekho requests the following access:
+        </p>
+        <div style="display: flex; gap: 12px; font-size: 12px; color: #5f6368; align-items: flex-start; background: #f1f3f4; padding: 12px; border-radius: 6px;">
+          <input type="checkbox" checked disabled style="margin-top: 2px; accent-color: #1a73e8;">
+          <div>
+            <strong style="color: #202124; display: block; margin-bottom: 2px;">Manage your Google Ads campaigns</strong>
+            <span style="line-height: 1.4; display: block;">Allows reading campaign metrics, downloading reports, and applying automated NCBD target optimizations.</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 12px;">
+        <button id="oauth-deny-btn" type="button" style="background: none; border: 1px solid #dadce0; color: #5f6368; font-weight: 600; font-size: 13.5px; cursor: pointer; padding: 8px 18px; border-radius: 4px; transition: background 0.2s;">Cancel</button>
+        <button id="oauth-allow-btn" type="button" style="background: #1a73e8; border: none; color: white; font-weight: 600; font-size: 13.5px; cursor: pointer; padding: 9px 24px; border-radius: 4px; box-shadow: 0 1px 2px rgba(60,64,67,0.3); transition: background 0.2s;">Grant Access</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Payment Retainer Dialog -->
+  <dialog id="payment-dialog" style="max-width: 460px; width: 90%; border-radius: var(--border-radius-md); padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); backdrop-filter: blur(20px);">
+    <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-color);">
+      <h3 class="modal-title">Secure Retainer Payment</h3>
+      <button class="close-btn" onclick="document.getElementById('payment-dialog').close()">✕</button>
+    </div>
+    <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <div style="background: var(--bg-sidebar); padding: 16px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-color);">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">
+          <span>INVOICE</span>
+          <span id="payment-invoice-id">INV-2026-101</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+          <span id="payment-plan-title" style="font-weight: 700; font-size: 15px;">Premium Agency Retainer</span>
+          <span id="payment-plan-fee" style="font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--accent-cyan);">₹25,000</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Billing Cycle: Monthly Retainer Subscription</div>
+      </div>
+      
+      <form id="payment-form" style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="form-group">
+          <label class="form-label">Cardholder Name</label>
+          <input type="text" class="form-input" value="Malhotra Hyundai Motors" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Credit Card Number</label>
+          <input type="text" class="form-input" placeholder="4111 2222 3333 4444" maxlength="19" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Expiry Date</label>
+            <input type="text" class="form-input" placeholder="MM/YY" maxlength="5" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">CVV</label>
+            <input type="password" class="form-input" placeholder="•••" maxlength="3" required>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; font-size: 11px; color: var(--text-secondary); align-items: flex-start; margin-top: 8px;">
+          <span>🔒</span>
+          <span>Your payment info is encrypted and processed via PCI-DSS compliant secure gateways.</span>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <button type="button" class="btn" onclick="document.getElementById('payment-dialog').close()">Cancel</button>
+          <button type="submit" id="submit-payment-btn" class="btn btn-primary" style="min-width: 120px;">Pay Retainer</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- AM Audit Progress Dialog -->
+  <dialog id="audit-dialog" style="max-width: 550px; width: 95%; border-radius: var(--border-radius-md); padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); backdrop-filter: blur(20px);">
+    <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-color);">
+      <h3 class="modal-title">AI Google Ads Auditor</h3>
+      <button class="close-btn" onclick="document.getElementById('audit-dialog').close()">✕</button>
+    </div>
+    <div style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+      <!-- Simulation Status -->
+      <div id="audit-progress-section" style="display: flex; flex-direction: column; gap: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span id="audit-status-label" style="font-weight: 600; font-size: 14px;">Initializing Campaign Audit...</span>
+          <span id="audit-progress-percent" style="font-weight: 700; color: var(--accent-cyan);">0%</span>
+        </div>
+        <div class="progress-bar-bg" style="height: 8px;">
+          <div id="audit-progress-fill" class="progress-bar-fill gradient-bg" style="width: 0%; box-shadow: none;"></div>
+        </div>
+        <div id="audit-logs-box" style="background: rgba(0,0,0,0.3); font-family: monospace; font-size: 11px; padding: 12px; border-radius: 6px; height: 130px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border-color); color: #a5c2f4;">
+          <!-- Console logs show up here -->
+        </div>
+      </div>
+
+      <!-- Simulated Audit Report Preview (starts hidden, appears after completion) -->
+      <div id="audit-report-preview" style="display: none; flex-direction: column; gap: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+        <h4 style="font-family: var(--font-display); font-size: 15px; font-weight: 700; color: var(--color-danger);">⚠️ AI Audit Findings Summary</h4>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); padding: 12px; border-radius: 6px;">
+            <div style="font-size: 10px; color: var(--text-muted); font-weight:700;">CURRENT AVERAGE CPL</div>
+            <div style="font-size: 20px; font-weight: 800; color: var(--color-danger); margin-top: 4px;">₹680</div>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">NCBD Benchmark: ₹450</div>
+          </div>
+          <div style="background: var(--bg-sidebar); border: 1px solid var(--border-color); padding: 12px; border-radius: 6px;">
+            <div style="font-size: 10px; color: var(--text-muted); font-weight:700;">ESTIMATED WASTE SPEND</div>
+            <div style="font-size: 20px; font-weight: 800; color: var(--color-warning); margin-top: 4px;">34.2%</div>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Wasted on irrelevant terms</div>
+          </div>
+        </div>
+
+        <div style="font-size: 12.5px; line-height: 1.45; display: flex; flex-direction: column; gap: 8px;">
+          <div style="background: rgba(220,53,69,0.06); padding: 10px 14px; border-radius: 6px; border-left: 3px solid var(--color-danger);">
+            <strong>Negative Keyword Bleed:</strong> Identified ₹42,000 in monthly ad spend wasted on broad queries like <i>"second hand Creta Okhla"</i> and <i>"Hyundai showroom jobs"</i>.
+          </div>
+          <div style="background: rgba(255,193,7,0.06); padding: 10px 14px; border-radius: 6px; border-left: 3px solid var(--color-warning);">
+            <strong>Bidding Inefficiency:</strong> Campaign is configured with standard CPC bidding, leading to high CPM and low conversion rates on weekend searches.
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 8px; border-top:1px solid var(--border-color); padding-top:16px;">
+          <button type="button" class="btn" onclick="document.getElementById('audit-dialog').close()">Dismiss</button>
+          <button type="button" id="push-audit-report-btn" class="btn btn-success" style="background: #39b54a; border-color: #39b54a; color: white;">🚀 Share Report with Dealer</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- AM Campaign Activation Dialog -->
+  <dialog id="activate-campaign-dialog" style="max-width: 500px; width: 90%; border-radius: var(--border-radius-md); padding: 0; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); backdrop-filter: blur(20px);">
+    <div class="modal-header" style="padding: 20px 24px; border-bottom: 1px solid var(--border-color);">
+      <h3 class="modal-title">Execute & Activate Campaign</h3>
+      <button class="close-btn" onclick="document.getElementById('activate-campaign-dialog').close()">✕</button>
+    </div>
+    <div style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+      <h4 style="font-size: 13.5px; font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 6px; color: var(--accent-cyan);">Dealer Campaign Goals Summary</h4>
+      
+      <div id="activate-goals-summary" style="font-size: 13px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-sidebar); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <!-- Goals populated dynamically -->
+      </div>
+
+      <form id="activate-campaign-form" style="display: flex; flex-direction: column; gap: 16px; margin-top: 8px;">
+        <div class="form-group">
+          <label class="form-label">Official Campaign Name (Google Ads)</label>
+          <input type="text" id="final-campaign-name" class="form-input" placeholder="NCBD_Malhotra_Ghaziabad_Creta_Search" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Committed Cost Per Lead (CPL) Threshold (₹)</label>
+          <input type="number" id="final-committed-cpl" class="form-input" value="450" required>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+          <button type="button" class="btn" onclick="document.getElementById('activate-campaign-dialog').close()">Cancel</button>
+          <button type="submit" class="btn btn-primary">⚡ Launch Live Campaign</button>
+        </div>
+      </form>
+    </div>
   </dialog>
 
   <!-- ========================================== -->
