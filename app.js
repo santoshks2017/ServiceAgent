@@ -1,5 +1,37 @@
 import { DEALERSHIPS, ACCOUNT_MANAGERS } from './data.js';
 
+// Load DEALERSHIPS from localStorage if it exists to enable multi-tab live sync
+const savedDb = localStorage.getItem('cd_ncbd_db');
+if (savedDb) {
+  try {
+    const parsed = JSON.parse(savedDb);
+    Object.keys(parsed).forEach(key => {
+      DEALERSHIPS[key] = parsed[key];
+    });
+  } catch (e) {
+    console.error("Error loading db from localStorage", e);
+  }
+}
+
+// Load ACCOUNT_MANAGERS from localStorage if it exists
+const savedAMDb = localStorage.getItem('cd_ncbd_am_db');
+if (savedAMDb) {
+  try {
+    const parsed = JSON.parse(savedAMDb);
+    Object.keys(parsed).forEach(key => {
+      ACCOUNT_MANAGERS[key] = parsed[key];
+    });
+  } catch (e) {
+    console.error("Error loading AM db from localStorage", e);
+  }
+}
+
+// Helper to save databases to localStorage
+function saveDbToLocalStorage() {
+  localStorage.setItem('cd_ncbd_db', JSON.stringify(DEALERSHIPS));
+  localStorage.setItem('cd_ncbd_am_db', JSON.stringify(ACCOUNT_MANAGERS));
+}
+
 // State Management
 let appState = {
   currentUser: null,
@@ -66,6 +98,41 @@ function applyTheme(theme) {
 }
 
 function checkExistingSession() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const queryRole = urlParams.get('role');
+  
+  if (queryRole === 'am') {
+    const savedAMSession = localStorage.getItem('cd_ncbd_am_session');
+    if (savedAMSession) {
+      try {
+        const session = JSON.parse(savedAMSession);
+        const am = ACCOUNT_MANAGERS[session.amId];
+        if (am) {
+          loginAM(am);
+          return;
+        }
+      } catch (e) {}
+    }
+    // Default fallback auto-login for Rohan Verma
+    loginAM(ACCOUNT_MANAGERS['rohan_verma']);
+    return;
+  } else if (queryRole === 'dealer') {
+    const savedDealerSession = localStorage.getItem('cd_ncbd_dealer_session');
+    if (savedDealerSession) {
+      try {
+        const session = JSON.parse(savedDealerSession);
+        const dealer = DEALERSHIPS[session.dealerId];
+        if (dealer) {
+          loginUser(dealer, session.locationId);
+          return;
+        }
+      } catch (e) {}
+    }
+    // Default fallback auto-login for Malhotra Hyundai Ghaziabad
+    loginUser(DEALERSHIPS['malhotra_hyundai']);
+    return;
+  }
+
   const savedSession = localStorage.getItem('cd_ncbd_session');
   if (savedSession) {
     try {
@@ -110,6 +177,11 @@ function loginUser(dealer, targetLocationId = null) {
     dealerId: Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key] === dealer),
     locationId: appState.currentLocationId
   }));
+  localStorage.setItem('cd_ncbd_dealer_session', JSON.stringify({
+    role: 'dealer',
+    dealerId: Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key] === dealer),
+    locationId: appState.currentLocationId
+  }));
 
   // Hide Auth, Show Main App
   document.getElementById('auth-overlay').style.display = 'none';
@@ -147,6 +219,10 @@ function loginAM(am) {
   
   // Save session
   localStorage.setItem('cd_ncbd_session', JSON.stringify({
+    role: 'am',
+    amId: am.id
+  }));
+  localStorage.setItem('cd_ncbd_am_session', JSON.stringify({
     role: 'am',
     amId: am.id
   }));
@@ -291,6 +367,8 @@ function initAuthEventListeners() {
   
   document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('cd_ncbd_session');
+    localStorage.removeItem('cd_ncbd_dealer_session');
+    localStorage.removeItem('cd_ncbd_am_session');
     appState.currentUser = null;
     showAuthOverlay();
     showToast('Logged Out', 'Session ended.');
@@ -443,6 +521,7 @@ function initAppDashboard() {
     // Persist mock ticket back to source data store for duration of runtime session
     appState.currentUser.locations[appState.currentLocationId].tickets = appState.tickets;
     
+    saveDbToLocalStorage();
     renderTickets();
     supportForm.reset();
     supportDialog.close();
@@ -1140,6 +1219,7 @@ function sendDealerChatMessage() {
   // Persist to runtime state
   appState.currentUser.locations[appState.currentLocationId].messages = appState.messages;
   
+  saveDbToLocalStorage();
   renderChat();
   input.value = '';
 
@@ -1177,6 +1257,7 @@ function simulateAMResponse(userMessage) {
     appState.messages.push(amMsg);
     appState.currentUser.locations[appState.currentLocationId].messages = appState.messages;
     
+    saveDbToLocalStorage();
     renderChat();
     amStatus.textContent = "Online";
     showToast('New Message', `Reply from ${loc.assignedAM}`);
@@ -1410,6 +1491,213 @@ function initSimPanel() {
     updateDashboardContent();
     showToast('CPL Warning triggered!', `Campaign CPL exceeded target. Notice the red indicator badge!`, 'danger');
   };
+
+  // 5. Force Link Google Ads
+  document.getElementById('sim-onboard-link-btn').onclick = () => {
+    const dealer = DEALERSHIPS['malhotra_hyundai'];
+    const loc = dealer ? dealer.locations['ghaziabad'] : null;
+    if (loc) {
+      loc.status = 'Pending Audit';
+      if (!loc.notifications) loc.notifications = [];
+      loc.notifications.unshift({
+        id: Date.now(),
+        title: "Google Ads Account Connected",
+        text: "Linked account: malhotramotors.ghz@gmail.com (ID: 482-990-1288). Read-only access granted.",
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      });
+      
+      const rohan = ACCOUNT_MANAGERS['rohan_verma'];
+      if (rohan) {
+        if (!rohan.notifications) rohan.notifications = [];
+        rohan.notifications.unshift({
+          id: Date.now() + 1,
+          title: "New Dealer Linked Google Ads",
+          text: "Malhotra Hyundai (Ghaziabad) connected Ads. Run campaign audit now.",
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+      }
+      
+      saveDbToLocalStorage();
+      refreshActiveViews();
+      showToast('Simulation: Ads Connected', 'Malhotra Hyundai linked Google Ads. AM notified.', 'success');
+    }
+  };
+
+  // 6. Force Complete AI Audit
+  document.getElementById('sim-onboard-audit-btn').onclick = () => {
+    const dealer = DEALERSHIPS['malhotra_hyundai'];
+    const loc = dealer ? dealer.locations['ghaziabad'] : null;
+    if (loc) {
+      loc.status = 'Pending Retainer';
+      if (!loc.notifications) loc.notifications = [];
+      loc.notifications.unshift({
+        id: Date.now(),
+        title: "AI Campaign Audit Report Ready",
+        text: "Rohan Verma shared your Google Ads audit report. Open Dashboard to view wasted spend and select plan.",
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      });
+      
+      saveDbToLocalStorage();
+      refreshActiveViews();
+      showToast('Simulation: Audit Completed', 'Campaign audit report ready and shared with Malhotra Hyundai.', 'success');
+    }
+  };
+
+  // 7. Force Pay Retainer (Premium)
+  document.getElementById('sim-onboard-pay-btn').onclick = () => {
+    const dealer = DEALERSHIPS['malhotra_hyundai'];
+    const loc = dealer ? dealer.locations['ghaziabad'] : null;
+    if (loc) {
+      loc.status = 'Pending Goals';
+      const planName = "Premium Plan";
+      const fee = 25000;
+      loc.subscription = {
+        status: "Active",
+        planName: planName,
+        fee: fee,
+        billingCycle: "Monthly",
+        nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        paymentMethod: "Visa ending in 9988",
+        invoices: [
+          { id: `INV-2026-${Math.floor(100 + Math.random() * 900)}`, date: new Date().toISOString().split('T')[0], amount: fee, status: "Paid" }
+        ]
+      };
+      if (!loc.notifications) loc.notifications = [];
+      loc.notifications.unshift({
+        id: Date.now(),
+        title: `${planName} Activated`,
+        text: `Retainer payment of ₹${fee.toLocaleString()} processed successfully. Setup goals to start!`,
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      });
+      
+      saveDbToLocalStorage();
+      refreshActiveViews();
+      showToast('Simulation: Payment Success', 'Premium Plan activated for Malhotra Hyundai.', 'success');
+    }
+  };
+
+  // 8. Force Submit Campaign Goals
+  document.getElementById('sim-onboard-goals-btn').onclick = () => {
+    const dealer = DEALERSHIPS['malhotra_hyundai'];
+    const loc = dealer ? dealer.locations['ghaziabad'] : null;
+    if (loc) {
+      loc.status = 'Pending Activation';
+      loc.goalObjective = "Lead Generation";
+      loc.goalModels = ["Creta Facelift", "Venue"];
+      loc.goalRadius = 15;
+      loc.goalBudget = 150000;
+      loc.goalInstructions = "Focus search keywords specifically around Creta Facelift automatic variants.";
+      loc.campaignName = "NCBD_Hyundai_Ghaziabad_Lead_Generation";
+      
+      const rohan = ACCOUNT_MANAGERS['rohan_verma'];
+      if (rohan) {
+        if (!rohan.notifications) rohan.notifications = [];
+        rohan.notifications.unshift({
+          id: Date.now() + 1,
+          title: "Goals Submitted",
+          text: `Malhotra Hyundai Ghaziabad submitted goals. Retainer Plan Active. Ready for Campaign activation.`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+      }
+      if (!loc.notifications) loc.notifications = [];
+      loc.notifications.unshift({
+        id: Date.now() + 2,
+        title: "Goals Submitted Successfully",
+        text: "Intake form received. Campaign Setup is now in queue for account manager review.",
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      });
+      
+      saveDbToLocalStorage();
+      refreshActiveViews();
+      showToast('Simulation: Goals Submitted', 'Campaign goals submitted for Malhotra Hyundai.', 'success');
+    }
+  };
+
+  // 9. Force Activate Live Campaign
+  document.getElementById('sim-onboard-activate-btn').onclick = () => {
+    const dealer = DEALERSHIPS['malhotra_hyundai'];
+    const loc = dealer ? dealer.locations['ghaziabad'] : null;
+    if (loc) {
+      const finalCPL = 420;
+      loc.status = 'Active';
+      loc.campaignName = loc.campaignName || "NCBD_Hyundai_Ghaziabad_Lead_Generation";
+      loc.committedCPL = finalCPL;
+      loc.startDate = new Date().toISOString().split('T')[0];
+      loc.totalBudget = loc.goalBudget || 150000;
+      
+      loc.dailyData = generateNewDailyData(
+        new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        finalCPL,
+        Math.round(loc.totalBudget / 30),
+        4
+      );
+      
+      loc.optimisations = [
+        {
+          date: new Date().toISOString().split('T')[0],
+          title: "NCBD Auto-Optimisation Campaign Launch",
+          action: `Initialized smart campaign in Google Ads. Activated Target CPA bidding at ₹${finalCPL}. Applied local geographic exclusions (within 15km) and SUVs in-market bidding priority.`,
+          why: `To launch Malhotra Hyundai Ghaziabad campaigns aligned with their submitted goals to promote Creta and Venue models within budget limits.`,
+          result: `Campaign launched successfully. Auto-optimization bids active. Initial impressions recorded.`
+        }
+      ];
+      
+      loc.messages = [
+        {
+          sender: "am",
+          text: `Hi Malhotra Hyundai Team! Priyanka/Rohan here. Your Ghaziabad dealership campaigns are now officially LIVE on Google Ads! I've set up Target CPA at ₹${finalCPL} to keep lead costs under control.`,
+          time: new Date().toISOString()
+        }
+      ];
+      
+      if (!loc.notifications) loc.notifications = [];
+      loc.notifications.unshift({
+        id: Date.now(),
+        title: "Campaign is LIVE!",
+        text: `Your Ghaziabad campaigns are live. Target CPL capped at ₹${finalCPL}. All dashboard tools unlocked.`,
+        date: new Date().toISOString().split('T')[0],
+        read: false
+      });
+      
+      const rohan = ACCOUNT_MANAGERS['rohan_verma'];
+      if (rohan) {
+        if (!rohan.notifications) rohan.notifications = [];
+        rohan.notifications.unshift({
+          id: Date.now() + 1,
+          title: "Campaign Activated",
+          text: `Campaign for Malhotra Hyundai Ghaziabad is now LIVE. Status set to Active.`,
+          date: new Date().toISOString().split('T')[0],
+          read: false
+        });
+      }
+      
+      saveDbToLocalStorage();
+      refreshActiveViews();
+      showToast('Simulation: Campaign Live', 'Malhotra Hyundai campaign activated. All dashboard views unlocked!', 'success');
+    }
+  };
+
+  // 10. Reset Database State
+  const resetBtn = document.getElementById('sim-reset-db-btn');
+  if (resetBtn) {
+    resetBtn.onclick = () => {
+      localStorage.removeItem('cd_ncbd_db');
+      localStorage.removeItem('cd_ncbd_am_db');
+      localStorage.removeItem('cd_ncbd_session');
+      localStorage.removeItem('cd_ncbd_dealer_session');
+      localStorage.removeItem('cd_ncbd_am_session');
+      showToast('Simulation Reset', 'Data cleared. Reloading page...', 'info');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    };
+  }
 }
 
 // ==========================================
@@ -1934,6 +2222,7 @@ function sendAMChatMessage() {
     if (!showroom.messages) showroom.messages = [];
     showroom.messages.push(newMsg);
     
+    saveDbToLocalStorage();
     renderAMChat();
     input.value = '';
     showToast('Message Sent', 'Your reply has been sent.');
@@ -2042,6 +2331,7 @@ window.advanceAMTicket = (dKey, locId, tktId, newStatus) => {
     note: `Status updated to ${newStatus} by Account Manager ${appState.currentUser.name}.`
   });
 
+  saveDbToLocalStorage();
   renderAMTickets();
   renderAMOverview(); // Refresh overview counts
   showToast('Ticket Updated', `${tktId} status moved from ${oldStatus} ➔ ${newStatus}`);
@@ -2231,6 +2521,7 @@ function renderOnboardingWizard(loc) {
                 <li>• SLA: 24-hour response</li>
               </ul>
               <button class="btn btn-primary" style="padding: 8px; width: 100%; font-size:12px; margin-top: 8px;" onclick="window.selectRetainerPlan('Premium Plan', 25000)">Select Premium</button>
+              <button class="btn btn-secondary" style="padding: 6px; width: 100%; font-size:10.5px; margin-top: 4px; border: 1px dashed var(--accent-cyan); color: var(--accent-cyan); background: transparent; cursor: pointer;" onclick="window.bypassPayment('Premium Plan', 25000)">⚡ Fast Pay (Bypass Dialog)</button>
             </div>
 
             <div class="glass-card package-box" style="padding: 16px; display: flex; flex-direction: column; gap: 8px; transition: all 0.2s;">
@@ -2397,6 +2688,7 @@ function renderOnboardingWizard(loc) {
 
         appState.notifications = [...loc.notifications];
 
+        saveDbToLocalStorage();
         // Refresh UI
         checkOnboardingState();
         updateNotificationsUI();
@@ -2440,6 +2732,7 @@ function initOnboardingEventListeners() {
           });
         }
         
+        saveDbToLocalStorage();
         checkOnboardingState();
         updateNotificationsUI();
         showToast('OAuth Access Granted', 'Google Ads account linked successfully. Audit initiated.', 'success');
@@ -2494,6 +2787,7 @@ function initOnboardingEventListeners() {
         paymentForm.reset();
         paymentDialog.close();
         
+        saveDbToLocalStorage();
         checkOnboardingState();
         updateNotificationsUI();
         renderBilling();
@@ -2525,6 +2819,7 @@ function initOnboardingEventListeners() {
         });
         
         document.getElementById('audit-dialog').close();
+        saveDbToLocalStorage();
         renderAMOverview();
         showToast('Audit Report Shared', `Audit results shared with Malhotra Hyundai. Status moved to Pending Retainer.`);
       }
@@ -2609,6 +2904,7 @@ function initOnboardingEventListeners() {
         activateForm.reset();
         activateDialog.close();
         
+        saveDbToLocalStorage();
         renderAMOverview();
         showToast('Campaign Launched', 'NCBD optimization activated. Status set to Active.', 'success');
       }
@@ -2746,3 +3042,136 @@ function generateNewDailyData(startDateStr, committedCPL, targetDailyBudget, tot
   }
   return dailyData;
 }
+
+// ==========================================
+// 15. DUAL-TAB SYNC & PRESENTATION WIDGET HELPERS
+// ==========================================
+window.bypassPayment = (planName, fee) => {
+  const loc = appState.currentUser ? appState.currentUser.locations[appState.currentLocationId] : null;
+  if (loc) {
+    loc.subscription = {
+      status: "Active",
+      planName: planName,
+      fee: fee,
+      billingCycle: "Monthly",
+      nextPaymentDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      paymentMethod: "Visa ending in 9988",
+      invoices: [
+        { id: `INV-2026-${Math.floor(100 + Math.random() * 900)}`, date: new Date().toISOString().split('T')[0], amount: fee, status: "Paid" }
+      ]
+    };
+
+    loc.status = 'Pending Goals';
+    if (!loc.notifications) loc.notifications = [];
+    loc.notifications.unshift({
+      id: Date.now(),
+      title: `${planName} Activated`,
+      text: `Retainer payment of ₹${fee.toLocaleString()} processed successfully. Setup goals to start!`,
+      date: new Date().toISOString().split('T')[0],
+      read: false
+    });
+    
+    appState.notifications = [...loc.notifications];
+    
+    // Close payment dialog if open
+    const paymentDialog = document.getElementById('payment-dialog');
+    if (paymentDialog) paymentDialog.close();
+
+    saveDbToLocalStorage();
+    refreshActiveViews();
+    showToast('Payment Bypassed', `${planName} activated. Please set your campaign goals.`);
+  }
+};
+
+function refreshActiveViews() {
+  if (!appState.currentUser) return;
+  
+  if (appState.currentRole === 'am') {
+    // Re-bind current AM reference
+    const amId = appState.currentUser.id;
+    appState.currentUser = ACCOUNT_MANAGERS[amId] || appState.currentUser;
+    appState.notifications = appState.currentUser.notifications || [];
+    
+    updateNotificationsUI();
+    
+    const activeTab = document.querySelector('.tab-pane.active');
+    if (activeTab) {
+      const tabId = activeTab.id;
+      if (tabId === 'tab-am-showrooms') {
+        renderAMOverview();
+      } else if (tabId === 'tab-am-chat') {
+        renderAMChat();
+      } else if (tabId === 'tab-am-tickets') {
+        renderAMTickets();
+      }
+    }
+  } else {
+    // Re-bind current dealer reference
+    const dealerId = Object.keys(DEALERSHIPS).find(key => DEALERSHIPS[key].phone === appState.currentUser.phone);
+    if (dealerId) {
+      appState.currentUser = DEALERSHIPS[dealerId];
+    }
+    
+    const locData = appState.currentUser.locations[appState.currentLocationId];
+    if (locData) {
+      appState.tickets = [...(locData.tickets || [])];
+      appState.messages = [...(locData.messages || [])];
+      appState.notifications = [...(locData.notifications || [])];
+    }
+    
+    updateNotificationsUI();
+    
+    const activeTab = document.querySelector('.tab-pane.active');
+    if (activeTab) {
+      const tabId = activeTab.id;
+      if (tabId === 'tab-dashboard') {
+        updateDashboardContent();
+        checkOnboardingState();
+      } else if (tabId === 'tab-log') {
+        renderOptimisationLog();
+      } else if (tabId === 'tab-reports') {
+        renderReports();
+      } else if (tabId === 'tab-tickets') {
+        renderTickets();
+      } else if (tabId === 'tab-billing') {
+        renderBilling();
+      } else if (tabId === 'tab-chat') {
+        renderChat();
+      }
+    } else {
+      updateDashboardContent();
+      checkOnboardingState();
+    }
+  }
+}
+
+// Storage event listener for multi-tab updates
+window.addEventListener('storage', (e) => {
+  if (e.key === 'cd_ncbd_db' || e.key === 'cd_ncbd_am_db') {
+    const newSavedDb = localStorage.getItem('cd_ncbd_db');
+    if (newSavedDb) {
+      try {
+        const parsed = JSON.parse(newSavedDb);
+        Object.keys(parsed).forEach(key => {
+          DEALERSHIPS[key] = parsed[key];
+        });
+      } catch (err) {
+        console.error("Error reloading db on storage event", err);
+      }
+    }
+    
+    const newSavedAMDb = localStorage.getItem('cd_ncbd_am_db');
+    if (newSavedAMDb) {
+      try {
+        const parsed = JSON.parse(newSavedAMDb);
+        Object.keys(parsed).forEach(key => {
+          ACCOUNT_MANAGERS[key] = parsed[key];
+        });
+      } catch (err) {
+        console.error("Error reloading AM db on storage event", err);
+      }
+    }
+
+    refreshActiveViews();
+  }
+});
